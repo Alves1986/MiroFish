@@ -210,9 +210,11 @@ const handleNewProject = async () => {
     const payload = {
       files: filesToUpload.map(f => ({
         filename: f.name || f.filename || 'documento.pdf',
-        size: f.size || 24576
+        size: f.size || 24576,
+        content: f.content || ''
       })),
-      simulation_requirement: simReq
+      simulation_requirement: simReq,
+      document_content: pending.extractedContent || filesToUpload.map(f => f.content).filter(Boolean).join('\n')
     }
     
     const res = await generateOntology(payload)

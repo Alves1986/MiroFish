@@ -12,21 +12,46 @@ const state = reactive({
   isPending: false
 })
 
-export function setPendingUpload(files, requirement) {
-  state.files = files
-  state.simulationRequirement = requirement
+export async function setPendingUpload(files, requirement) {
+  state.files = files || []
+  state.simulationRequirement = requirement || ''
   state.isPending = true
-  try {
-    const serializableFiles = (files || []).map((f) => ({
+
+  const serializableFiles = []
+  let combinedContent = ''
+
+  for (const f of files || []) {
+    let text = ''
+    try {
+      if (typeof f.text === 'function') {
+        text = await f.text()
+      } else if (f.content) {
+        text = f.content
+      }
+    } catch {
+      // ignore
+    }
+
+    if (text) {
+      combinedContent += `\n[Documento: ${f.name || f.filename || 'anexo'}]\n${text.slice(0, 40000)}\n`
+    }
+
+    serializableFiles.push({
       name: f.name || f.filename || 'documento.md',
       filename: f.name || f.filename || 'documento.md',
-      size: f.size || 16384
-    }))
+      size: f.size || (text ? text.length : 16384),
+      content: text ? text.slice(0, 40000) : ''
+    })
+  }
+
+  state.extractedContent = combinedContent
+  try {
     sessionStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
         files: serializableFiles,
         simulationRequirement: requirement || '',
+        extractedContent: combinedContent,
         isPending: true
       })
     )
@@ -36,10 +61,11 @@ export function setPendingUpload(files, requirement) {
 }
 
 export function getPendingUpload() {
-  if (state.isPending && state.files.length > 0) {
+  if (state.isPending) {
     return {
       files: state.files,
       simulationRequirement: state.simulationRequirement,
+      extractedContent: state.extractedContent || '',
       isPending: state.isPending
     }
   }
@@ -47,10 +73,11 @@ export function getPendingUpload() {
     const raw = sessionStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
-      if (parsed && parsed.isPending && Array.isArray(parsed.files) && parsed.files.length > 0) {
+      if (parsed && parsed.isPending) {
         return {
-          files: parsed.files,
+          files: parsed.files || [],
           simulationRequirement: parsed.simulationRequirement || '',
+          extractedContent: parsed.extractedContent || '',
           isPending: true
         }
       }
@@ -61,6 +88,7 @@ export function getPendingUpload() {
   return {
     files: state.files,
     simulationRequirement: state.simulationRequirement,
+    extractedContent: state.extractedContent || '',
     isPending: state.isPending
   }
 }

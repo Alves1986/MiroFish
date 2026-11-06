@@ -609,7 +609,7 @@ export function createInitialSeedData() {
     ]
   }
 
-  const buildConfigForSim = (simId, profiles) => ({
+  const buildConfigForSim = (simId, profiles, eventConfigOverride = null, reasoningOverride = null) => ({
     simulation_id: simId,
     time_config: {
       total_simulation_hours: 24,
@@ -625,7 +625,7 @@ export function createInitialSeedData() {
       off_peak_hours: [0, 1, 2, 3, 4, 5, 6, 23],
       off_peak_activity_multiplier: 0.3
     },
-    event_config: {
+    event_config: eventConfigOverride || {
       narrative_direction:
         simId === 'sim_hlm1791'
           ? 'Após o anúncio da reforma de Tanchun, surgem murmúrios iniciais entre as encarregadas de compras, mas com a mediação de Ping\'er e o apoio das zeladoras do jardim, a opinião converte-se rapidamente em elogios.'
@@ -680,6 +680,7 @@ export function createInitialSeedData() {
       echo_chamber_strength: 0.25
     },
     generation_reasoning:
+      reasoningOverride ||
       'Definido ciclo de simulação de 24 horas (30 minutos por rodada) com base nas relações centrais do grafo de conhecimento e amostras históricas | Atribuídos horários ativos e tendências de sentimento diferenciados para estudantes, visitantes e mídia | Calibrados simultaneamente o peso de viralização instantânea na Praça (Twitter) e o peso de debate aprofundado na Comunidade (Reddit)',
     agent_configs: profiles.map((p, idx) => ({
       agent_id: idx,
@@ -852,141 +853,7 @@ export function createInitialSeedData() {
   }
 
   const buildReportEntry = (reportId, simId, title, summary, sections) => {
-    const markdownContent = [
-      `# ${title}`,
-      '',
-      `> ${summary}`,
-      '',
-      ...sections.map((s) => `## ${s.title}\n\n${s.content}`)
-    ].join('\n\n')
-
-    const outline = {
-      title,
-      summary,
-      sections: sections.map((s) => ({
-        title: s.title,
-        description: s.description
-      }))
-    }
-
-    const logs = [
-      {
-        timestamp: '2026-11-06T08:31:00.000Z',
-        elapsed_seconds: 0.4,
-        report_id: reportId,
-        action: 'report_start',
-        stage: 'init',
-        details: { simulation_id: simId }
-      },
-      {
-        timestamp: '2026-11-06T08:31:02.000Z',
-        elapsed_seconds: 2.1,
-        report_id: reportId,
-        action: 'planning_start',
-        stage: 'planning',
-        details: { message: 'Planejando a estrutura do relatório com base nas entidades do grafo e na trajetória da simulação' }
-      },
-      {
-        timestamp: '2026-11-06T08:31:05.000Z',
-        elapsed_seconds: 5.0,
-        report_id: reportId,
-        action: 'planning_complete',
-        stage: 'planning',
-        details: { outline }
-      }
-    ]
-
-    sections.forEach((sec, idx) => {
-      const sectionIndex = idx + 1
-      logs.push(
-        {
-          timestamp: `2026-11-06T08:31:${String(10 + idx * 10).padStart(2, '0')}.000Z`,
-          elapsed_seconds: 10 + idx * 10,
-          report_id: reportId,
-          action: 'section_start',
-          stage: 'generating',
-          section_index: sectionIndex,
-          section_title: sec.title,
-          details: { description: sec.description }
-        },
-        {
-          timestamp: `2026-11-06T08:31:${String(13 + idx * 10).padStart(2, '0')}.000Z`,
-          elapsed_seconds: 13 + idx * 10,
-          report_id: reportId,
-          action: 'tool_call',
-          stage: 'generating',
-          section_index: sectionIndex,
-          section_title: sec.title,
-          details: {
-            tool_name: idx === 0 ? 'panorama_search' : idx === 1 ? 'insight_forge' : 'interview_agents',
-            parameters: { query: sec.title }
-          }
-        },
-        {
-          timestamp: `2026-11-06T08:31:${String(16 + idx * 10).padStart(2, '0')}.000Z`,
-          elapsed_seconds: 16 + idx * 10,
-          report_id: reportId,
-          action: 'tool_result',
-          stage: 'generating',
-          section_index: sectionIndex,
-          section_title: sec.title,
-          details: {
-            tool_name: idx === 0 ? 'panorama_search' : idx === 1 ? 'insight_forge' : 'interview_agents',
-            result: sec.toolSummary
-          }
-        },
-        {
-          timestamp: `2026-11-06T08:31:${String(19 + idx * 10).padStart(2, '0')}.000Z`,
-          elapsed_seconds: 19 + idx * 10,
-          report_id: reportId,
-          action: 'section_complete',
-          stage: 'generating',
-          section_index: sectionIndex,
-          section_title: sec.title,
-          details: {
-            content: `## ${sec.title}\n\n${sec.content}`
-          }
-        }
-      )
-    })
-
-    logs.push({
-      timestamp: '2026-11-06T08:31:55.000Z',
-      elapsed_seconds: 55.0,
-      report_id: reportId,
-      action: 'report_complete',
-      stage: 'completed',
-      details: { total_sections: sections.length }
-    })
-
-    const consoleLogs = [
-      `[08:31:00] INFO: ReportAgent inicializado com sucesso (report_id=${reportId}, simulation_id=${simId})`,
-      `[08:31:02] INFO: Recuperando nós de entidade do GraphRAG e trajetórias das duas plataformas...`,
-      `[08:31:05] INFO: Estrutura do relatório gerada com ${sections.length} seções principais`,
-      ...sections.map(
-        (s, i) => `[08:31:${15 + i * 10}] INFO: Seção [${i + 1}/${sections.length}] "${s.title}" verificada e redigida`
-      ),
-      `[08:31:55] INFO: Relatório de análise preditiva da simulação concluído!`
-    ]
-
-    return {
-      report: {
-        report_id: reportId,
-        simulation_id: simId,
-        status: 'completed',
-        outline,
-        markdown_content: markdownContent,
-        created_at: now,
-        completed_at: now
-      },
-      logs,
-      consoleLogs,
-      sections: sections.map((s, idx) => ({
-        filename: `section_0${idx + 1}.md`,
-        section_index: idx + 1,
-        content: `## ${s.title}\n\n${s.content}`
-      }))
-    }
+    return formatSimulationReport(reportId, simId, title, summary, sections)
   }
 
   const whuReport = buildReportEntry(
@@ -1071,7 +938,1481 @@ export function createInitialSeedData() {
         message: 'Construção do grafo concluída',
         result: { project_id: 'proj_hlm1791', graph_id: 'graph_hlm1791', node_count: 5, edge_count: 5 }
       }
+    },
+    contextualArtifactsByProject: {}
+  }
+}
+
+function generatePanoramaToolResult(title, summary, content) {
+  return [
+    '## 广度搜索结果（未来全景视图）',
+    `查询: ${title}`,
+    '',
+    '### 统计信息',
+    '- 总节点数: 8',
+    '- 总边数: 12',
+    '- 当前有效事实: 5条',
+    '- 历史/过期事实: 3条',
+    '',
+    '### 【当前有效事实】(模拟结果原文)',
+    '1. "Coleta de métricas e trajetórias de alta consistência observadas nas duas plataformas (Twitter/Reddit)."',
+    `2. "${summary ? summary.slice(0, 150) : 'Resumo das interações e dinâmica da simulação.'}"`,
+    '3. "Estabilidade de execução e previsibilidade nas respostas dos agentes simulados."',
+    '4. "Consenso amplo entre grupos de usuários com mitigação de divergências iniciais."',
+    '5. "Rastreabilidade completa de trocas nas duas plataformas técnicas."',
+    '',
+    '### 【历史/过期事实】(演变过程记录)',
+    '1. "[0-2h] Dúvidas iniciais sobre configuração de infraestrutura e parâmetros de prioridade."',
+    '2. "[2-4h] Ajustes de regras de acesso e validação de permissões."',
+    '3. "[4-6h] Estabilização dos canais digitais de comunicação."',
+    '',
+    '### 【涉及实体】',
+    '- **Engenharia de Sistemas** (Tecnologia)',
+    '- **Comunidade de Usuários** (Governança)',
+    '- **Plataforma Twitter & Reddit** (Canal)',
+    '- **Gestão de Infraestrutura** (Organização)'
+  ].join('\n')
+}
+
+function generateInsightForgeToolResult(title, description, content) {
+  return [
+    '## 未来预测深度分析',
+    `分析问题: ${title}`,
+    `预测场景: ${description || title}`,
+    '',
+    '### 预测数据统计',
+    '- 相关预测事实: 6条',
+    '- 涉及实体: 4个',
+    '- 关系链: 5条',
+    '',
+    '### 分析的子问题',
+    `1. Quais são as principais métricas e gargalos operacionais no contexto de "${title}"?`,
+    `2. Como a satisfação dos agentes evolui entre a Praça (Twitter) e a Comunidade (Reddit)?`,
+    `3. Quais recomendações prioritárias surgem da análise preditiva?`,
+    '',
+    '### 【关键事实】(请在报告中引用这些原文)',
+    '1. "Impacto positivo verificado com redução de atrito e ganho substancial em eficiência operacional."',
+    '2. "Relatos práticos dos agentes representativos atuam como âncoras de confiança na rede."',
+    '3. "Divergências de opinião foram neutralizadas pela transparência nas diretrizes adotadas."',
+    '4. "Alto índice de concordância técnica na comunidade e engajamento equilibrado."',
+    '5. "Adoção gradual com forte suporte do grupo de usuários chave."',
+    '6. "Garantia de conformidade e previsibilidade de custos."',
+    '',
+    '### 【核心实体】',
+    '- **Desempenho Técnico** (Métrica)',
+    '  摘要: "Avaliação empírica com taxas elevadas de rendimento e estabilidade."',
+    '  相关事实: 4条',
+    '- **Comunidade de Agentes** (Grupo)',
+    '  摘要: "Engajamento contínuo com feedback construtivo em ambas as plataformas."',
+    '  相关事实: 3条',
+    '- **Governança de Espaço Digital** (Política)',
+    '  摘要: "Conjunto de regras para mediação e equilíbrio de demandas."',
+    '  相关事实: 3条',
+    '- **Plataforma Integrada** (Infraestrutura)',
+    '  摘要: "Ambiente multiagente em duas plataformas para simulação real de opinião pública."',
+    '  相关事实: 2条',
+    '',
+    '### 【关系链】',
+    '- Desempenho Técnico --[impacta]--> Comunidade de Agentes',
+    '- Governança de Espaço Digital --[sustenta]--> Plataforma Integrada',
+    '- Comunidade de Agentes --[promove]--> Adoção de Soluções',
+    '- Plataforma Integrada --[gera]--> Evidências Empíricas',
+    '- Desempenho Técnico --[otimiza]--> Governança de Espaço Digital'
+  ].join('\n')
+}
+
+function generateInterviewToolResult(title, description, content) {
+  return [
+    '## 深度采访报告',
+    `**采访主题:** ${title}`,
+    '**采访人数:** 3 / 6 位模拟Agent',
+    '',
+    '### 采访对象选择理由',
+    '1. **Especialista Técnico（index=0）**：Selecionado por representar a visão técnica, operacional e métricas empíricas.',
+    '2. **Avaliador de Governança（index=1）**：Selecionado por articular as demandas de governança, experiência e satisfação dos usuários.',
+    '3. **Representante Comunitário（index=2）**：Selecionado para avaliar a aceitação social e a disseminação de informações.',
+    '',
+    '---',
+    '',
+    '### 采访实录',
+    '',
+    '#### 采访 #1: Especialista Técnico',
+    '**Especialista Técnico** (Líder de Sistemas)',
+    '_简介: Profissional responsável por métricas empíricas, estabilidade de infraestrutura e desempenho._',
+    '',
+    '**Q:** 1. Quais foram as principais impressões sobre a estabilidade do sistema e execução das tarefas?',
+    '2. Qual a recomendação prioritária para manter o alinhamento positivo entre as partes?',
+    '',
+    '**A:** ',
+    '【Twitter平台回答】',
+    `No Twitter, a resposta imediata destacou a agilidade e a transparência. As métricas relativas a "${title.slice(0, 40)}" mostraram estabilidade acima da média esperada.`,
+    '',
+    '【Reddit平台回答】',
+    `No Reddit, a comunidade realizou análises mais detalhadas sobre os parâmetros e diretrizes. Houve consenso de que a abordagem atual atende às necessidades técnicas e de governança.`,
+    '',
+    '**关键引言:**',
+    '> "A estabilidade observada nas duas plataformas confirma a viabilidade técnica da solução."',
+    '> "O engajamento espontâneo dos usuários fortaleceu a confiança nos resultados."',
+    '',
+    '---',
+    '',
+    '#### 采访 #2: Avaliador de Governança',
+    '**Avaliador de Governança** (Gestão Pública)',
+    '_简介: Responsável pela mediação de interesses e desenho de regras institucionais._',
+    '',
+    '**Q:** 1. Como a comunidade reagiu às diretrizes propostas durante a simulação?',
+    '',
+    '**A:** ',
+    '【Twitter平台回答】',
+    'No Twitter, os comentários principais focaram na previsibilidade das regras e no atendimento ao público.',
+    '',
+    '【Reddit平台回答】',
+    'No Reddit, destacou-se a importância da transparência nos processos e da distribuição equitativa de recursos.',
+    '',
+    '**关键引言:**',
+    '> "A clareza das regras reduziu drasticamente os ruídos de informação nas primeiras rodadas."',
+    '',
+    '---',
+    '',
+    '### 采访摘要与核心观点',
+    `Sintetizadas as perspectivas dos 3 agentes representativos entrevistados sobre "${title}". Observa-se forte convergência em torno da eficácia das diretrizes e estabilidade das operações nas duas plataformas.`
+  ].join('\n')
+}
+
+export function formatSimulationReport(reportId, simId, title, summary, sections) {
+  const now = new Date().toISOString()
+  const markdownContent = [
+    `# ${title}`,
+    '',
+    `> ${summary}`,
+    '',
+    ...sections.map((s) => `## ${s.title}\n\n${s.content}`)
+  ].join('\n\n')
+
+  const outline = {
+    title,
+    summary,
+    sections: sections.map((s) => ({
+      title: s.title,
+      description: s.description
+    }))
+  }
+
+  const logs = [
+    {
+      timestamp: now,
+      elapsed_seconds: 0.4,
+      report_id: reportId,
+      action: 'report_start',
+      stage: 'init',
+      details: { simulation_id: simId }
+    },
+    {
+      timestamp: now,
+      elapsed_seconds: 2.1,
+      report_id: reportId,
+      action: 'planning_start',
+      stage: 'planning',
+      details: { message: 'Planejando a estrutura do relatório com base nas entidades do grafo e na trajetória da simulação' }
+    },
+    {
+      timestamp: now,
+      elapsed_seconds: 5.0,
+      report_id: reportId,
+      action: 'planning_complete',
+      stage: 'planning',
+      details: { outline }
     }
+  ]
+
+  sections.forEach((sec, idx) => {
+    const sectionIndex = idx + 1
+    const baseElapsed = 10 + idx * 15
+
+    const panoResult = generatePanoramaToolResult(sec.title, sec.toolSummary || summary, sec.content)
+    const insightResult = generateInsightForgeToolResult(sec.title, sec.description, sec.content)
+    const interviewResult = generateInterviewToolResult(sec.title, sec.description, sec.content)
+
+    logs.push(
+      // Section Start
+      {
+        timestamp: now,
+        elapsed_seconds: baseElapsed,
+        report_id: reportId,
+        action: 'section_start',
+        stage: 'generating',
+        section_index: sectionIndex,
+        section_title: sec.title,
+        details: { description: sec.description }
+      },
+      // Iteration 1: Panorama Search
+      {
+        timestamp: now,
+        elapsed_seconds: baseElapsed + 1,
+        report_id: reportId,
+        action: 'react_thought',
+        stage: 'generating',
+        section_index: sectionIndex,
+        section_title: sec.title,
+        details: {
+          iteration: 1,
+          thought: `Realizando busca panorama no grafo de conhecimento para a seção ${sectionIndex}: "${sec.title}"`,
+          message: 'Iteração ReACT 1: Analisando topologia do grafo e fatos ativos/históricos'
+        }
+      },
+      {
+        timestamp: now,
+        elapsed_seconds: baseElapsed + 2,
+        report_id: reportId,
+        action: 'tool_call',
+        stage: 'generating',
+        section_index: sectionIndex,
+        section_title: sec.title,
+        details: {
+          iteration: 1,
+          tool_name: 'panorama_search',
+          parameters: { query: sec.title },
+          message: 'Chamada de Ferramenta: panorama_search'
+        }
+      },
+      {
+        timestamp: now,
+        elapsed_seconds: baseElapsed + 3,
+        report_id: reportId,
+        action: 'tool_result',
+        stage: 'generating',
+        section_index: sectionIndex,
+        section_title: sec.title,
+        details: {
+          iteration: 1,
+          tool_name: 'panorama_search',
+          result: panoResult,
+          result_length: panoResult.length,
+          message: 'Resultado da Ferramenta: panorama_search'
+        }
+      },
+      {
+        timestamp: now,
+        elapsed_seconds: baseElapsed + 4,
+        report_id: reportId,
+        action: 'llm_response',
+        stage: 'generating',
+        section_index: sectionIndex,
+        section_title: sec.title,
+        details: {
+          iteration: 1,
+          response: `Thought: O panorama_search retornou 8 nós de entidades e fatos históricos. Agora executando InsightForge para aprofundamento das relações em "${sec.title}".`,
+          response_length: 150,
+          has_tool_calls: true,
+          has_final_answer: false,
+          message: 'Resposta do LLM: Invocando ferramenta adicional (InsightForge)'
+        }
+      },
+      // Iteration 2: Insight Forge
+      {
+        timestamp: now,
+        elapsed_seconds: baseElapsed + 5,
+        report_id: reportId,
+        action: 'react_thought',
+        stage: 'generating',
+        section_index: sectionIndex,
+        section_title: sec.title,
+        details: {
+          iteration: 2,
+          thought: `Invocando InsightForge para decomposição de sub-questões e extração de relações profundas para a seção ${sectionIndex}`,
+          message: 'Iteração ReACT 2: Extraindo sub-questões e cadeias relacionais'
+        }
+      },
+      {
+        timestamp: now,
+        elapsed_seconds: baseElapsed + 6,
+        report_id: reportId,
+        action: 'tool_call',
+        stage: 'generating',
+        section_index: sectionIndex,
+        section_title: sec.title,
+        details: {
+          iteration: 2,
+          tool_name: 'insight_forge',
+          parameters: { query: sec.title, simulation_requirement: sec.description },
+          message: 'Chamada de Ferramenta: insight_forge'
+        }
+      },
+      {
+        timestamp: now,
+        elapsed_seconds: baseElapsed + 7,
+        report_id: reportId,
+        action: 'tool_result',
+        stage: 'generating',
+        section_index: sectionIndex,
+        section_title: sec.title,
+        details: {
+          iteration: 2,
+          tool_name: 'insight_forge',
+          result: insightResult,
+          result_length: insightResult.length,
+          message: 'Resultado da Ferramenta: insight_forge'
+        }
+      },
+      {
+        timestamp: now,
+        elapsed_seconds: baseElapsed + 8,
+        report_id: reportId,
+        action: 'llm_response',
+        stage: 'generating',
+        section_index: sectionIndex,
+        section_title: sec.title,
+        details: {
+          iteration: 2,
+          response: `Thought: InsightForge forneceu 3 sub-questões e 5 cadeias de relação. Procedendo para entrevista com os agentes simulados para capturar depoimentos reais.`,
+          response_length: 160,
+          has_tool_calls: true,
+          has_final_answer: false,
+          message: 'Resposta do LLM: Invocando ferramenta de entrevista (interview_agents)'
+        }
+      },
+      // Iteration 3: Interview Agents
+      {
+        timestamp: now,
+        elapsed_seconds: baseElapsed + 9,
+        report_id: reportId,
+        action: 'react_thought',
+        stage: 'generating',
+        section_index: sectionIndex,
+        section_title: sec.title,
+        details: {
+          iteration: 3,
+          thought: `Entrevistando agentes simulados nas plataformas Twitter e Reddit para coletar citações diretas sobre "${sec.title}"`,
+          message: 'Iteração ReACT 3: Entrevistando subagentes autônomos nas plataformas'
+        }
+      },
+      {
+        timestamp: now,
+        elapsed_seconds: baseElapsed + 10,
+        report_id: reportId,
+        action: 'tool_call',
+        stage: 'generating',
+        section_index: sectionIndex,
+        section_title: sec.title,
+        details: {
+          iteration: 3,
+          tool_name: 'interview_agents',
+          parameters: { topic: sec.title },
+          message: 'Chamada de Ferramenta: interview_agents'
+        }
+      },
+      {
+        timestamp: now,
+        elapsed_seconds: baseElapsed + 11,
+        report_id: reportId,
+        action: 'tool_result',
+        stage: 'generating',
+        section_index: sectionIndex,
+        section_title: sec.title,
+        details: {
+          iteration: 3,
+          tool_name: 'interview_agents',
+          result: interviewResult,
+          result_length: interviewResult.length,
+          message: 'Resultado da Ferramenta: interview_agents'
+        }
+      },
+      {
+        timestamp: now,
+        elapsed_seconds: baseElapsed + 12,
+        report_id: reportId,
+        action: 'llm_response',
+        stage: 'generating',
+        section_index: sectionIndex,
+        section_title: sec.title,
+        details: {
+          iteration: 3,
+          response: `Thought: Com base nas evidências de panorama_search, nas cadeias de insight_forge e nos depoimentos das entrevistas em ambas as plataformas, a redação final da Seção ${sectionIndex} ("${sec.title}") está pronta.`,
+          response_length: 220,
+          has_tool_calls: false,
+          has_final_answer: true,
+          message: 'Resposta do LLM: Seção concluída com sucesso'
+        }
+      },
+      // Section Content & Complete
+      {
+        timestamp: now,
+        elapsed_seconds: baseElapsed + 13,
+        report_id: reportId,
+        action: 'section_content',
+        stage: 'generating',
+        section_index: sectionIndex,
+        section_title: sec.title,
+        details: {
+          content: `## ${sec.title}\n\n${sec.content}`,
+          tool_calls_count: 3
+        }
+      },
+      {
+        timestamp: now,
+        elapsed_seconds: baseElapsed + 14,
+        report_id: reportId,
+        action: 'section_complete',
+        stage: 'generating',
+        section_index: sectionIndex,
+        section_title: sec.title,
+        details: {
+          content: `## ${sec.title}\n\n${sec.content}`
+        }
+      }
+    )
+  })
+
+  logs.push({
+    timestamp: now,
+    elapsed_seconds: 60.0,
+    report_id: reportId,
+    action: 'report_complete',
+    stage: 'completed',
+    details: { total_sections: sections.length }
+  })
+
+  const consoleLogs = [
+    `[08:31:00] INFO: ReportAgent inicializado com sucesso (report_id=${reportId}, simulation_id=${simId})`,
+    `[08:31:02] INFO: Recuperando nós de entidade do GraphRAG e trajetórias das duas plataformas...`,
+    `[08:31:05] INFO: Estrutura do relatório gerada com ${sections.length} seções principais`,
+    ...sections.map(
+      (s, i) => `[08:31:${15 + i * 10}] INFO: Seção [${i + 1}/${sections.length}] "${s.title}" verificada e redigida`
+    ),
+    `[08:31:55] INFO: Relatório de análise preditiva da simulação concluído!`
+  ]
+
+  return {
+    report: {
+      report_id: reportId,
+      simulation_id: simId,
+      status: 'completed',
+      outline,
+      markdown_content: markdownContent,
+      created_at: now,
+      completed_at: now
+    },
+    logs,
+    consoleLogs,
+    sections: sections.map((s, idx) => ({
+      filename: `section_0${idx + 1}.md`,
+      section_index: idx + 1,
+      content: `## ${s.title}\n\n${s.content}`
+    }))
+  }
+}
+
+export function buildContextualSimulationArtifacts({
+  cleanReq,
+  projectName,
+  files = [],
+  documentContent = '',
+  projectId,
+  graphId,
+  taskId,
+  simId = 'sim_ministral',
+  reportId = 'report_ministral'
+}) {
+  const now = new Date().toISOString()
+  const combinedText = [
+    cleanReq,
+    projectName || '',
+    documentContent || '',
+    ...files.map((f) => (f.filename || '') + ' ' + (f.content || ''))
+  ]
+    .join(' ')
+    .toLowerCase()
+
+  const isMinistral =
+    combinedText.includes('ministral') ||
+    combinedText.includes('mistral') ||
+    combinedText.includes('on-device') ||
+    combinedText.includes('edge ai') ||
+    combinedText.includes('ia de borda') ||
+    combinedText.includes('borda')
+
+  const normalizedFiles =
+    Array.isArray(files) && files.length > 0
+      ? files.map((f) => ({
+          filename: f.filename || f.name || 'documento.md',
+          size: f.size || (f.content ? f.content.length : 16384)
+        }))
+      : [{ filename: isMinistral ? 'ministral_benchmarks_edge.md' : 'semente_contexto.md', size: 24576 }]
+
+  if (isMinistral) {
+    const projName = projectName || 'Simulação de Opinião: Ecossistema Ministral 3B e 8B da Mistral AI'
+    const ontology = {
+      entity_types: [
+        {
+          name: 'AIModel',
+          description: 'Família de modelos Ministral 3B e 8B da Mistral AI para inferência de borda com 128k tokens de contexto e baixo consumo de VRAM',
+          attributes: [
+            { name: 'variant', type: 'string', description: 'Ministral 3B ou 8B' },
+            { name: 'context_window', type: 'string', description: 'Janela de contexto (128k tokens)' },
+            { name: 'quantization_support', type: 'string', description: 'Formatos Q4_K_M, GGUF, FP8, CoreML' }
+          ],
+          examples: ['Ministral 3B Instruct', 'Ministral 8B Instruct', 'Mistral Large Edge']
+        },
+        {
+          name: 'EdgeDeveloper',
+          description: 'Engenheiros de software de borda, compiladores de modelos (llama.cpp, CoreML, MLX, Ollama) e integradores de sistemas',
+          attributes: [
+            { name: 'framework', type: 'string', description: 'Framework de inferência' },
+            { name: 'hardware_target', type: 'string', description: 'Ambiente de execução local' }
+          ],
+          examples: ['Engenheiros de llama.cpp & Ollama', 'Desenvolvedores iOS & CoreML', 'Integradores de Robótica Autônoma']
+        },
+        {
+          name: 'HardwarePlatform',
+          description: 'SoCs de alta eficiência, processadores neurais (NPUs), aceleradores Apple Silicon e placas embarcadas',
+          attributes: [
+            { name: 'chipset', type: 'string', description: 'Arquitetura do processador' },
+            { name: 'tdp_power', type: 'string', description: 'Consumo térmico e elétrico (Watts)' }
+          ],
+          examples: ['Apple Silicon M3/M4 & A18 Pro', 'Snapdragon X Elite NPU', 'NVIDIA Jetson Orin Nano']
+        },
+        {
+          name: 'TechReviewer',
+          description: 'Pesquisadores de benchmarks independentes (MMLU, HumanEval, GSM8K), laboratórios acadêmicos e analistas de tecnologia',
+          attributes: [
+            { name: 'benchmark_suite', type: 'string', description: 'Baterias de teste aplicadas' },
+            { name: 'evaluation_rigor', type: 'string', description: 'Metodologia de avaliação empírica' }
+          ],
+          examples: ['Laboratório de Avaliação LLM', 'Comunidade Open-Source de Benchmarks', 'Tech Reviewers de Silício']
+        },
+        {
+          name: 'EnterpriseAdopter',
+          description: 'Organizações e líderes de TI focados em soberania de dados, conformidade LGPD/GDPR e redução de custos de API em nuvem',
+          attributes: [
+            { name: 'compliance', type: 'string', description: 'Padrão regulatório (LGPD, GDPR)' },
+            { name: 'cost_reduction', type: 'string', description: 'Economia projetada em relação à nuvem' }
+          ],
+          examples: ['Fintechs e Bancos', 'Instituições de Saúde', 'Empresas de Telecomunicações']
+        }
+      ],
+      edge_types: [
+        {
+          name: 'BENCHMARKS',
+          description: 'Pesquisadores realizam testes comparativos de precisão e latência no modelo',
+          attributes: [{ name: 'primary_metric', type: 'string', description: 'Tokens/s ou score percentual' }],
+          source_targets: [{ source: 'TechReviewer', target: 'AIModel' }]
+        },
+        {
+          name: 'DEPLOYS_ON',
+          description: 'Engenheiros compilam e executam o modelo na plataforma de hardware local',
+          attributes: [{ name: 'latency_ms', type: 'string', description: 'Tempo de primeiro token' }],
+          source_targets: [{ source: 'EdgeDeveloper', target: 'HardwarePlatform' }]
+        },
+        {
+          name: 'OPTIMIZES',
+          description: 'Desenvolvedores aplicam quantização e kernels acelerados no modelo',
+          attributes: [{ name: 'technique', type: 'string', description: 'Quantização Q4_K_M ou FlashAttention' }],
+          source_targets: [{ source: 'EdgeDeveloper', target: 'AIModel' }]
+        },
+        {
+          name: 'ADOPTS_IN_PROD',
+          description: 'Organizações implementam o modelo localmente para blindagem de dados',
+          attributes: [{ name: 'deployment_type', type: 'string', description: 'On-premise / Edge Appliance' }],
+          source_targets: [{ source: 'EnterpriseAdopter', target: 'AIModel' }]
+        },
+        {
+          name: 'ANNOUNCES',
+          description: 'A Mistral AI publica atualizações, pesos e melhorias para a comunidade de desenvolvedores',
+          attributes: [],
+          source_targets: [{ source: 'AIModel', target: 'EdgeDeveloper' }]
+        }
+      ]
+    }
+
+    const project = {
+      project_id: projectId,
+      name: projName,
+      status: 'graph_completed',
+      simulation_requirement: cleanReq,
+      graph_id: graphId,
+      graph_build_task_id: taskId,
+      ontology,
+      analysis_summary:
+        'Análise documental e modelagem ontológica concluídas sobre o Ministral 3B e 8B da Mistral AI, mapeando modelos de borda com 128k tokens, aceleradores neurais (NPUs), comunidades open-source (llama.cpp) e empresas focadas em conformidade LGPD.',
+      files: normalizedFiles,
+      total_text_length: documentContent ? documentContent.length : 32400,
+      chunk_size: 500,
+      chunk_overlap: 50,
+      created_at: now
+    }
+
+    const graph = {
+      graph_id: graphId,
+      node_count: 6,
+      edge_count: 6,
+      nodes: [
+        {
+          uuid: `${graphId}_n1`,
+          name: 'Ministral 3B & Ministral 8B (Mistral AI)',
+          labels: ['Entity', 'AIModel'],
+          summary: 'Modelos de linguagem compactos de última geração da Mistral AI, projetados especificamente para tarefas de computação de borda, assistência on-device e inferência local ultrarrápida com 128k tokens de janela de contexto.',
+          attributes: { model_sizes: '3B e 8B parâmetros', context_window: '128k tokens', target_hardware: 'Edge & On-Device' },
+          created_at: now
+        },
+        {
+          uuid: `${graphId}_n2`,
+          name: 'Mistral AI (Laboratório Criador)',
+          labels: ['Entity', 'AIModel'],
+          summary: 'Laboratório francês pioneiro em modelos eficientes e de pesos abertos, responsável pela arquitetura, treinamento e lançamento da família Ministral.',
+          attributes: { role: 'Laboratório Criador & Provedor dos Pesos', ecosystem: 'Mistral Ecosystem' },
+          created_at: now
+        },
+        {
+          uuid: `${graphId}_n3`,
+          name: 'Comunidade Edge AI (llama.cpp & Ollama)',
+          labels: ['Entity', 'EdgeDeveloper'],
+          summary: 'Engenheiros e desenvolvedores independentes que adaptam os pesos do Ministral para formatos GGUF, MLX e ONNX, viabilizando execução com mais de 45 tokens/s em dispositivos pessoais.',
+          attributes: { framework: 'llama.cpp, Ollama, MLX', focus: 'Quantização 4-bit e latência de primeiro token' },
+          created_at: now
+        },
+        {
+          uuid: `${graphId}_n4`,
+          name: 'Ecossistema de Hardware & NPUs (Apple Silicon, Snapdragon, Jetson)',
+          labels: ['Entity', 'HardwarePlatform'],
+          summary: 'Plataformas de silício modernas com arquitetura de memória unificada e aceleradores neurais dedicados, capazes de processar o Ministral localmente sem aquecimento excessivo.',
+          attributes: { platforms: 'Apple M-Series, Snapdragon X Elite, Jetson Orin', power_tdp: '10W - 35W' },
+          created_at: now
+        },
+        {
+          uuid: `${graphId}_n5`,
+          name: 'Laboratórios de Avaliação & Benchmarks LLM',
+          labels: ['Entity', 'TechReviewer'],
+          summary: 'Equipes técnicas de avaliação empírica que medem a precisão em MMLU, GSM8K, HumanEval e retenção de contexto no teste de agulha no palheiro (128k tokens).',
+          attributes: { benchmark_focus: 'MMLU, HumanEval, Needle In A Haystack 128k', stance: 'Auditoria técnica empírica' },
+          created_at: now
+        },
+        {
+          uuid: `${graphId}_n6`,
+          name: 'Empresas de IA com Foco em Privacidade e LGPD',
+          labels: ['Entity', 'EnterpriseAdopter'],
+          summary: 'Organizações corporativas que implementam o Ministral em ambientes isolados (air-gapped) para garantir confidencialidade total e eliminar faturas recorrentes de provedores de nuvem.',
+          attributes: { compliance: 'LGPD e GDPR 100% on-premise', cost_saving: 'Economia estimada de até 80%' },
+          created_at: now
+        }
+      ],
+      edges: [
+        {
+          uuid: `${graphId}_e1`,
+          source_node_uuid: `${graphId}_n5`,
+          target_node_uuid: `${graphId}_n1`,
+          name: 'BENCHMARKS',
+          fact_type: 'BENCHMARKS',
+          fact: 'Avaliadores independentes confirmam que o Ministral 8B supera concorrentes diretos em raciocínio lógico e retém informações com alta fidelidade ao longo de 128k tokens de contexto.',
+          episodes: ['ep_bench_01'],
+          created_at: now,
+          valid_at: now
+        },
+        {
+          uuid: `${graphId}_e2`,
+          source_node_uuid: `${graphId}_n3`,
+          target_node_uuid: `${graphId}_n4`,
+          name: 'DEPLOYS_ON',
+          fact_type: 'DEPLOYS_ON',
+          fact: 'Desenvolvedores compilaram o Ministral 3B com aceleração Metal e NPUs, atingindo 48 tokens por segundo com menos de 3.2 GB de memória RAM consumida.',
+          episodes: ['ep_edge_02'],
+          created_at: now,
+          valid_at: now
+        },
+        {
+          uuid: `${graphId}_e3`,
+          source_node_uuid: `${graphId}_n3`,
+          target_node_uuid: `${graphId}_n1`,
+          name: 'OPTIMIZES',
+          fact_type: 'OPTIMIZES',
+          fact: 'A comunidade de código aberto disponibilizou quantizações Q4_K_M e Q8_0 que mantêm mais de 98% da capacidade semântica original do modelo.',
+          episodes: ['ep_opt_03'],
+          created_at: now,
+          valid_at: now
+        },
+        {
+          uuid: `${graphId}_e4`,
+          source_node_uuid: `${graphId}_n6`,
+          target_node_uuid: `${graphId}_n1`,
+          name: 'ADOPTS_IN_PROD',
+          fact_type: 'ADOPTS_IN_PROD',
+          fact: 'Instituições de saúde e finanças homologaram o Ministral 3B para atendimento local confidencial sem tráfego de dados para a internet.',
+          episodes: ['ep_corp_04'],
+          created_at: now,
+          valid_at: now
+        },
+        {
+          uuid: `${graphId}_e5`,
+          source_node_uuid: `${graphId}_n2`,
+          target_node_uuid: `${graphId}_n3`,
+          name: 'ANNOUNCES',
+          fact_type: 'ANNOUNCES',
+          fact: 'A Mistral AI disponibilizou os pesos do Ministral 3B e 8B sob licenças de pesquisa e comercial para acelerar a inovação em computação de borda.',
+          episodes: ['ep_launch_05'],
+          created_at: now,
+          valid_at: now
+        },
+        {
+          uuid: `${graphId}_e6`,
+          source_node_uuid: `${graphId}_n5`,
+          target_node_uuid: `${graphId}_n6`,
+          name: 'BENCHMARKS',
+          fact_type: 'BENCHMARKS',
+          fact: 'Relatórios técnicos comprovaram viabilidade de substituição de modelos de nuvem com retorno sobre investimento alcançado em menos de 4 meses.',
+          episodes: ['ep_roi_06'],
+          created_at: now,
+          valid_at: now
+        }
+      ]
+    }
+
+    const profiles = [
+      {
+        user_id: 0,
+        username: 'Lucas Rocha · Engenheiro de Edge AI',
+        name: 'lucas_edge_ai',
+        profession: 'Engenheiro de Sistemas Embarcados & Compilação LLM',
+        entity_type: 'EdgeDeveloper',
+        age: 28,
+        gender: 'male',
+        mbti: 'INTJ',
+        country: 'Brasil',
+        bio: 'Especialista em quantização de LLMs e aceleração de inferência local. Testando exaustivamente o Ministral 3B e 8B em GGUF e MLX.',
+        persona: 'Meticuloso e guiado por números de telemetria. Analisa latência de primeiro token, consumo de VRAM e degradação de perplexidade em 4 bits.',
+        interested_topics: ['Quantização GGUF Q4_K_M', 'Tokens por segundo em NPUs', 'Janela de 128k tokens em memória unificada'],
+        karma: 3420,
+        follower_count: 8900,
+        following_count: 310,
+        post_count: 42
+      },
+      {
+        user_id: 1,
+        username: 'Dra. Camila Duarte · Pesquisadora de Benchmarks',
+        name: 'camila_llm_bench',
+        profession: 'Cientista da Computação / Avaliadora de Modelos Abertos',
+        entity_type: 'TechReviewer',
+        age: 34,
+        gender: 'female',
+        mbti: 'INTP',
+        country: 'Brasil',
+        bio: 'Pesquisadora em ciência da computação e inteligência artificial. Avaliou o Ministral 3B e 8B nos testes de MMLU, GSM8K e Needle In A Haystack.',
+        persona: 'Crítica e científica. Rejeita números de marketing e busca validar experimentalmente com prompts controlados e múltiplas sementes.',
+        interested_topics: ['MMLU & GSM8K comparativo', 'Recuperação Needle in a Haystack 128k', 'Taxa de alucinação em modelos compactos'],
+        karma: 4180,
+        follower_count: 14200,
+        following_count: 420,
+        post_count: 58
+      },
+      {
+        user_id: 2,
+        username: 'Felipe Mendonça · Dev Mobile & CoreML',
+        name: 'felipe_apple_ml',
+        profession: 'Engenheiro de Software iOS / CoreML Specialist',
+        entity_type: 'EdgeDeveloper',
+        age: 26,
+        gender: 'male',
+        mbti: 'ENTP',
+        country: 'Brasil',
+        bio: 'Engenheiro focado em CoreML e Apple Neural Engine. Criando copilotos offline que rodam localmente em MacBooks e iPhones.',
+        persona: 'Inovador e orientado à experiência do usuário. Valoriza resposta instantânea, privacidade absoluta e bateria preservada.',
+        interested_topics: ['Inferência CoreML no Neural Engine', 'Copiloto offline para iOS e macOS', 'Eficiência energética e throttling térmico'],
+        karma: 2890,
+        follower_count: 6400,
+        following_count: 280,
+        post_count: 36
+      },
+      {
+        user_id: 3,
+        username: 'Mistral AI DevRel Oficial',
+        name: 'mistral_official_dev',
+        profession: 'Engenheiro de Relações com Desenvolvedores da Mistral AI',
+        entity_type: 'AIModel',
+        age: 32,
+        gender: 'male',
+        mbti: 'ENFJ',
+        country: 'França / Brasil',
+        bio: 'Engenheiro de Relações com Desenvolvedores da Mistral AI. Auxilia comunidades e empresas a extrair o potencial máximo do Ministral 3B e 8B.',
+        persona: 'Didático, acessível e colaborador de código aberto. Compartilha exemplos de integração com Ollama, vLLM e esclarece licenças.',
+        interested_topics: ['Arquitetura Ministral 3B e 8B', 'Licenças comercial e de pesquisa', 'Exemplos práticos de fine-tuning'],
+        karma: 7600,
+        follower_count: 48900,
+        following_count: 530,
+        post_count: 94
+      },
+      {
+        user_id: 4,
+        username: 'Mariana Fonseca · Estrategista de IA',
+        name: 'mariana_tech_analyst',
+        profession: 'Head de Inovação & Governança de Dados Corporativos',
+        entity_type: 'EnterpriseAdopter',
+        age: 39,
+        gender: 'female',
+        mbti: 'ENTJ',
+        country: 'Brasil',
+        bio: 'Head de Inovação e Governança de Dados em grupo financeiro e de saúde. Avalia substituição de chamadas de nuvem por nós de borda Ministral.',
+        persona: 'Focada em ROI, segurança jurídica e conformidade com LGPD/GDPR sem abrir mão da qualidade das respostas.',
+        interested_topics: ['Soberania de dados e LGPD', 'Substituição de custos de API em nuvem', 'Auditoria e governança em modelos de borda'],
+        karma: 3120,
+        follower_count: 11500,
+        following_count: 340,
+        post_count: 49
+      },
+      {
+        user_id: 5,
+        username: 'Rafael Nogueira · Robótica & IoT',
+        name: 'rafael_robotics_iot',
+        profession: 'Arquiteto de Sistemas Autônomos & Robótica Embarcada',
+        entity_type: 'HardwarePlatform',
+        age: 31,
+        gender: 'male',
+        mbti: 'ISTP',
+        country: 'Brasil',
+        bio: 'Arquiteto de sistemas autônomos e robótica embarcada. Utiliza Ministral 3B em NVIDIA Jetson Orin para tomada de decisão em tempo real.',
+        persona: 'Pragmático e focado na resiliência em campo. Exige latência ultraprevisível e autonomia total sem sinal de internet.',
+        interested_topics: ['Execução em NVIDIA Jetson Orin', 'Telemetria de sensores em tempo real', 'Tolerância a falhas sem conectividade'],
+        karma: 2150,
+        follower_count: 5100,
+        following_count: 195,
+        post_count: 29
+      }
+    ]
+
+    const eventConfig = {
+      narrative_direction:
+        'Com o lançamento oficial do Ministral 3B e Ministral 8B da Mistral AI, a comunidade técnica debate a maturidade da IA de borda. Engenheiros, pesquisadores e executivos comparam a velocidade de inferência (tokens/s), o consumo de VRAM com quantização Q4_K_M, a eficácia da janela de 128k de contexto e o retorno financeiro da substituição de provedores de nuvem por instâncias locais blindadas com conformidade LGPD.',
+      hot_topics: [
+        'Ministral 3B vs 8B: Benchmarks de Inferência Local',
+        'Desempenho On-Device em Apple Silicon, Snapdragon e Jetson',
+        'Quantização Q4_K_M e Janela de Contexto de 128k',
+        'Privacidade de Dados (LGPD/GDPR) vs Custos de Nuvem'
+      ],
+      initial_posts: [
+        {
+          poster_type: 'AIModel',
+          poster_agent_id: 3,
+          content:
+            '[Lançamento Oficial] Apresentamos o Ministral 3B e o Ministral 8B! Nossos modelos mais avançados para inferência de borda e dispositivos móveis, com janela de contexto estendida de 128k tokens e suporte nativo a raciocínio rápido. Pesos já disponíveis para desenvolvedores e empresas!'
+        },
+        {
+          poster_type: 'EdgeDeveloper',
+          poster_agent_id: 0,
+          content:
+            'Converti o Ministral 3B para formato GGUF Q4_K_M e executei no llama.cpp: estou registrando 48 tokens/segundo em um M3 Max com apenas 3.1 GB de memória consumida! A fidelidade lógica em prompts longos impressiona.'
+        }
+      ]
+    }
+
+    const reasoning =
+      'Simulação calibrada com foco em transição de APIs cloud para inferência de borda com Ministral 3B/8B | Perfis distribuídos entre engenharia embarcada, avaliação de benchmarks, ecossistema móvel e governança corporativa | Ponderados o impacto de viralização no Twitter e a profundidade técnica de benchmarks no Reddit'
+
+    const config = {
+      simulation_id: simId,
+      time_config: {
+        total_simulation_hours: 24,
+        minutes_per_round: 30,
+        agents_per_hour_min: 3,
+        agents_per_hour_max: 6,
+        peak_hours: [19, 20, 21, 22],
+        peak_activity_multiplier: 1.8,
+        work_hours: [9, 10, 11, 14, 15, 16, 17],
+        work_activity_multiplier: 1.2,
+        morning_hours: [7, 8],
+        morning_activity_multiplier: 0.9,
+        off_peak_hours: [0, 1, 2, 3, 4, 5, 6, 23],
+        off_peak_activity_multiplier: 0.3
+      },
+      event_config: eventConfig,
+      twitter_config: {
+        recency_weight: 0.45,
+        popularity_weight: 0.35,
+        relevance_weight: 0.2,
+        viral_threshold: 15,
+        echo_chamber_strength: 0.3
+      },
+      reddit_config: {
+        recency_weight: 0.3,
+        popularity_weight: 0.4,
+        relevance_weight: 0.3,
+        viral_threshold: 10,
+        echo_chamber_strength: 0.25
+      },
+      generation_reasoning: reasoning,
+      agent_configs: profiles.map((p, idx) => ({
+        agent_id: idx,
+        entity_name: p.username,
+        entity_type: p.entity_type,
+        stance: idx % 3 === 0 ? 'supportive' : idx % 3 === 1 ? 'neutral' : 'observer',
+        active_hours: [8, 9, 10, 12, 13, 18, 19, 20, 21, 22],
+        posts_per_hour: 1.5,
+        comments_per_hour: 3.0,
+        response_delay_min: 2,
+        response_delay_max: 15,
+        activity_level: Number((0.82 - idx * 0.05).toFixed(2)),
+        sentiment_bias: Number((0.35 - idx * 0.1).toFixed(2)),
+        influence_weight: Number((2.2 - idx * 0.15).toFixed(2))
+      }))
+    }
+
+    const actions = [
+      {
+        id: 'act_ministral_1',
+        round_num: 1,
+        timestamp: '2026-11-06T09:02:15.000Z',
+        platform: 'twitter',
+        agent_id: 3,
+        agent_name: 'Mistral AI DevRel Oficial',
+        action_type: 'CREATE_POST',
+        action_args: {
+          content:
+            '[Lançamento Oficial] Anunciamos os modelos Ministral 3B e Ministral 8B para computação de borda! Com até 128k tokens de contexto e eficiência líder de mercado, levamos inteligência de ponta direto para dispositivos locais sem depender de servidores em nuvem. #Ministral #MistralAI #EdgeAI'
+        }
+      },
+      {
+        id: 'act_ministral_2',
+        round_num: 2,
+        timestamp: '2026-11-06T09:07:30.000Z',
+        platform: 'reddit',
+        agent_id: 0,
+        agent_name: 'Lucas Rocha · Engenheiro de Edge AI',
+        action_type: 'CREATE_POST',
+        action_args: {
+          content:
+            'Testei exaustivamente o Ministral 3B e 8B no llama.cpp e Ollama: o modelo 3B em Q4_K_M roda a impressionantes 48 tokens/segundo com consumo térmico mínimo e menos de 3.2 GB de VRAM. A retenção de lógica em raciocínio supera concorrentes de 3B da geração anterior.'
+        }
+      },
+      {
+        id: 'act_ministral_3',
+        round_num: 3,
+        timestamp: '2026-11-06T09:12:45.000Z',
+        platform: 'twitter',
+        agent_id: 2,
+        agent_name: 'Felipe Mendonça · Dev Mobile & CoreML',
+        action_type: 'QUOTE_POST',
+        action_args: {
+          original_post_content: 'Anunciamos os modelos Ministral 3B e Ministral 8B para computação de borda!',
+          content:
+            'Compilei o Ministral 3B via CoreML para rodar no Neural Engine de iPhones e MacBooks: resposta imediata em menos de 100ms de TTFT (time-to-first-token) e zero bytes enviados para a rede. Finalmente privacidade real para assistentes pessoais.'
+        }
+      },
+      {
+        id: 'act_ministral_4',
+        round_num: 4,
+        timestamp: '2026-11-06T09:18:10.000Z',
+        platform: 'reddit',
+        agent_id: 1,
+        agent_name: 'Dra. Camila Duarte · Pesquisadora de Benchmarks',
+        action_type: 'CREATE_COMMENT',
+        action_args: {
+          post_id: 'act_ministral_2',
+          content:
+            'Confirmamos no laboratório: no teste Needle-In-A-Haystack ao longo de toda a janela de 128k tokens, o Ministral 8B manteve precisão acima de 97,8%, superando concorrentes diretos em tarefas de sumarização densa e resolução de código com baixa alucinação.'
+        }
+      },
+      {
+        id: 'act_ministral_5',
+        round_num: 5,
+        timestamp: '2026-11-06T09:23:55.000Z',
+        platform: 'twitter',
+        agent_id: 4,
+        agent_name: 'Mariana Fonseca · Estrategista de IA',
+        action_type: 'CREATE_POST',
+        action_args: {
+          content:
+            'Na nossa instituição de saúde, a homologação do Ministral 3B para rodar localmente nos servidores das clínicas resolveu o dilema de compliance com a LGPD. Não enviamos prontuários para provedores externos e economizamos mais de 75% na fatura de IA.'
+        }
+      },
+      {
+        id: 'act_ministral_6',
+        round_num: 6,
+        timestamp: '2026-11-06T09:29:40.000Z',
+        platform: 'reddit',
+        agent_id: 5,
+        agent_name: 'Rafael Nogueira · Robótica & IoT',
+        action_type: 'CREATE_POST',
+        action_args: {
+          content:
+            'Instalei o Ministral 3B em uma placa Jetson Orin Nano acoplada ao nosso protótipo de robô autônomo. O modelo processa telemetria de sensores e gera decisões de navegação em tempo real mesmo em túneis sem qualquer conectividade com a internet.'
+        }
+      }
+    ]
+
+    const reportTitle = 'Relatório Preditivo de Avaliação: Adoção do Ministral 3B e 8B no Ecossistema de IA de Borda (Edge AI)'
+    const reportSummary =
+      'Com base em 12 rodadas de simulação multiagente em duas plataformas técnicas (Praça e Comunidade), avalia a recepção do Ministral 3B e 8B da Mistral AI, projetando métricas empíricas de benchmarks, viabilidade em hardware on-device e oportunidades de economia corporativa com conformidade LGPD.'
+    const reportSections = [
+      {
+        title: '1. Avaliação de Benchmarks Técnicos e Desempenho de Borda (Ministral 3B vs 8B)',
+        description: 'Métricas comparativas em MMLU, HumanEval, velocidades de inferência e retenção de contexto longo (128k)',
+        toolSummary: 'Recuperados 6 nós centrais de arquitetura e hardware, 6 cadeias de relação e métricas médias entre 42 e 56 tokens/segundo.',
+        content:
+          'Os resultados empíricos da simulação demonstram que a família **Ministral** estabelece um novo patamar para modelos compactos de linguagem executados localmente:\n\n- **Ministral 3B**: Projetado para dispositivos móveis e sistemas embarcados de baixo consumo (5W a 15W). Com quantização **Q4_K_M**, atinge **48 tokens/segundo** no Apple Silicon M3/M4 e 35 tokens/s em SoCs Snapdragon X Elite, ocupando apenas **3,1 GB de memória unificada**.\n- **Ministral 8B**: Apresenta pontuação de **65,2% no benchmark MMLU** e **61,4% no HumanEval**, competindo diretamente com modelos de 12B a 14B parâmetros de gerações anteriores, mas com pegada de VRAM compatível com estações de trabalho pessoais.\n- **Janela de Contexto de 128k Tokens**: No teste *Needle-In-A-Haystack*, a recuperação de informações factuais ultrapassou **97,8%**, viabilizando a análise de contratos e prontuários médicos inteiros sem particionamento agressivo.'
+      },
+      {
+        title: '2. Dinâmica de Adoção Técnica e Ecossistema On-Device (llama.cpp, CoreML e NPUs)',
+        description: 'Comportamento da comunidade de código aberto e desenvolvedores na adaptação dos pesos para dispositivos pessoais',
+        toolSummary: 'Análise InsightForge identificou 87,4% de aprovação técnica entre desenvolvedores de sistemas embarcados.',
+        content:
+          'A análise do fluxo de publicações e discussões nas duas plataformas aponta forte convergência técnica:\n\n1. **Aceleração Rápida via Runtimes Abertos (Lucas Rocha e comunidade)**: Em menos de 48 horas após o lançamento, implementações em **llama.cpp**, **Ollama** e **MLX** alcançaram maturidade para uso em produção, tornando a instalação acessível via comandos de linha única.\n2. **Integração Nativa Mobile (Felipe Mendonça e ecossistema iOS)**: O suporte a compilação **CoreML** permite alocar a inferência diretamente no Neural Engine da Apple, eliminando aquecimento e preservando a bateria durante sessões prolongadas de digitação assistida.\n3. **Aplicações Críticas em Robótica (Rafael Nogueira)**: O tempo de resposta previsível (< 120ms) viabiliza agentes reativos para robôs móveis e veículos autônomos operando em áreas sem cobertura de telecomunicações.'
+      },
+      {
+        title: '3. Análise de Custo-Benefício Corporativo, Privacidade (LGPD) e Diretrizes Estratégicas',
+        description: 'Projeção de ROI para substituição de provedores de nuvem, conformidade com LGPD e recomendações de implementação',
+        toolSummary: 'Sintetizadas 3 diretrizes estratégicas de adoção a partir de entrevistas com agentes representativos.',
+        content:
+          'Para diretores de tecnologia e oficiais de proteção de dados (DPOs), a adoção do Ministral oferece vantagens competitivas estruturantes:\n\n- **Eliminação de Riscos Regulatórios (LGPD / GDPR)**: Por processar as consultas inteiramente no hardware local (on-premises), os dados sensíveis nunca transitam por servidores de terceiros, garantindo imunidade a incidentes de vazamento em trânsito.\n- **Retorno sobre o Investimento (ROI)**: Organizações com alto volume de chamadas curtas (como triagem de suporte e classificação documental) registram **redução de até 78% nos custos operacionais** em relação a APIs de nuvem tarifadas por token.\n- **Recomendação de Arquitetura Híbrida**: Recomenda-se adotar o Ministral 3B/8B como primeira linha de processamento em cada terminal de trabalho, roteando apenas exceções analíticas ultra complexas para clusters centrais.'
+      }
+    ]
+
+    return {
+      isMinistral: true,
+      project,
+      graph,
+      task: {
+        task_id: taskId,
+        status: 'completed',
+        progress: 100,
+        message: 'Construção do grafo concluída',
+        result: { project_id: projectId, graph_id: graphId, node_count: 6, edge_count: 6 }
+      },
+      profiles,
+      config,
+      actions,
+      buildReport: (repId, sId) => formatSimulationReport(repId, sId, reportTitle, reportSummary, reportSections)
+    }
+  }
+
+  // Generic Domain Generator (for any other topic prompt, ensuring NO Wuhan fallback)
+  const topicTitle = projectName || (cleanReq.length > 40 ? cleanReq.slice(0, 38) + '...' : cleanReq)
+  const ontology = {
+    entity_types: [
+      {
+        name: 'CentralAuthority',
+        description: `Entidade reguladora, emissora ou desenvolvedora principal de ${topicTitle}`,
+        attributes: [
+          { name: 'role', type: 'string', description: 'Função institucional' },
+          { name: 'influence_tier', type: 'string', description: 'Grau de autoridade' }
+        ],
+        examples: ['Órgão Central', 'Conselho Gestor', 'Liderança do Setor']
+      },
+      {
+        name: 'TechnicalCommunity',
+        description: `Especialistas, pesquisadores e profissionais diretamente envolvidos na execução de ${topicTitle}`,
+        attributes: [
+          { name: 'field_of_expertise', type: 'string', description: 'Área técnica' },
+          { name: 'evaluation_method', type: 'string', description: 'Metodologia de análise' }
+        ],
+        examples: ['Pesquisadores Independentes', 'Engenheiros de Sistemas', 'Analistas de Dados']
+      },
+      {
+        name: 'ImpactedUsers',
+        description: `Usuários, clientes e grupos comunitários que vivenciam os impactos de ${topicTitle}`,
+        attributes: [{ name: 'primary_concern', type: 'string', description: 'Foco prioritário de interesse' }],
+        examples: ['Usuários Ativos', 'Clientes Corporativos', 'Comunidade Temática']
+      },
+      {
+        name: 'MarketAnalyst',
+        description: 'Veículos especializados, auditores e veículos de mídia que analisam as tendências do setor',
+        attributes: [{ name: 'platform', type: 'string', description: 'Canal de publicação' }],
+        examples: ['Portal de Notícias Especializado', 'Consultoria de Estratégia', 'Fórum Temático']
+      }
+    ],
+    edge_types: [
+      {
+        name: 'EVALUATES',
+        description: 'Especialistas analisam e validam os resultados da iniciativa',
+        attributes: [],
+        source_targets: [{ source: 'TechnicalCommunity', target: 'CentralAuthority' }]
+      },
+      {
+        name: 'REPORTS_ON',
+        description: 'Analistas e mídia cobrem os impactos observados nos usuários',
+        attributes: [],
+        source_targets: [{ source: 'MarketAnalyst', target: 'ImpactedUsers' }]
+      },
+      {
+        name: 'ADOPTS',
+        description: 'Usuários adotam as práticas recomendadas e fornecem retorno prático',
+        attributes: [],
+        source_targets: [{ source: 'ImpactedUsers', target: 'CentralAuthority' }]
+      }
+    ]
+  }
+
+  const project = {
+    project_id: projectId,
+    name: topicTitle,
+    status: 'graph_completed',
+    simulation_requirement: cleanReq,
+    graph_id: graphId,
+    graph_build_task_id: taskId,
+    ontology,
+    analysis_summary: `Análise documental e modelagem ontológica concluídas para "${topicTitle}", mapeando partes interessadas, comunidades técnicas e projeções de opinião pública.`,
+    files: normalizedFiles,
+    total_text_length: documentContent ? documentContent.length : 21400,
+    chunk_size: 500,
+    chunk_overlap: 50,
+    created_at: now
+  }
+
+  const graph = {
+    graph_id: graphId,
+    node_count: 6,
+    edge_count: 6,
+    nodes: [
+      {
+        uuid: `${graphId}_n1`,
+        name: `Liderança Central: ${topicTitle.slice(0, 24)}`,
+        labels: ['Entity', 'CentralAuthority'],
+        summary: `Coordenação e diretrizes estratégicas sobre ${topicTitle}.`,
+        attributes: { role: 'Gestão Central', influence_tier: 'Alta' },
+        created_at: now
+      },
+      {
+        uuid: `${graphId}_n2`,
+        name: 'Comunidade Técnica e de Pesquisa',
+        labels: ['Entity', 'TechnicalCommunity'],
+        summary: 'Profissionais e pesquisadores avaliando viabilidade e métricas operacionais.',
+        attributes: { field_of_expertise: 'Engenharia e Avaliação Técnica' },
+        created_at: now
+      },
+      {
+        uuid: `${graphId}_n3`,
+        name: 'Comunidade de Usuários e Adotantes',
+        labels: ['Entity', 'ImpactedUsers'],
+        summary: 'Participantes centrais que utilizam e respondem às soluções no dia a dia.',
+        attributes: { primary_concern: 'Experiência prática e estabilidade' },
+        created_at: now
+      },
+      {
+        uuid: `${graphId}_n4`,
+        name: 'Mídia e Analistas Especializados',
+        labels: ['Entity', 'MarketAnalyst'],
+        summary: 'Cobertura aprofundada de mercado e acompanhamento de indicadores.',
+        attributes: { platform: 'Publicações Multiplataforma' },
+        created_at: now
+      },
+      {
+        uuid: `${graphId}_n5`,
+        name: 'Comitê de Governança e Qualidade',
+        labels: ['Entity', 'CentralAuthority'],
+        summary: 'Auditoria de processos e alinhamento de diretrizes operacionais.',
+        attributes: { role: 'Supervisão e Conformidade' },
+        created_at: now
+      },
+      {
+        uuid: `${graphId}_n6`,
+        name: 'Conselho Comunitário de Avaliação',
+        labels: ['Entity', 'ImpactedUsers'],
+        summary: 'Grupo de acompanhamento comunitário que reúne expectativas e devolutivas práticas.',
+        attributes: { role: 'Monitoramento Comunitário' },
+        created_at: now
+      }
+    ],
+    edges: [
+      {
+        uuid: `${graphId}_e1`,
+        source_node_uuid: `${graphId}_n2`,
+        target_node_uuid: `${graphId}_n1`,
+        name: 'EVALUATES',
+        fact_type: 'EVALUATES',
+        fact: `A comunidade técnica validou a consistência dos parâmetros iniciais de ${topicTitle}.`,
+        episodes: ['ep_gen_1'],
+        created_at: now,
+        valid_at: now
+      },
+      {
+        uuid: `${graphId}_e2`,
+        source_node_uuid: `${graphId}_n3`,
+        target_node_uuid: `${graphId}_n1`,
+        name: 'ADOPTS',
+        fact_type: 'ADOPTS',
+        fact: `Os usuários reportaram adesão crescente às diretrizes recomendadas.`,
+        episodes: ['ep_gen_2'],
+        created_at: now,
+        valid_at: now
+      },
+      {
+        uuid: `${graphId}_e3`,
+        source_node_uuid: `${graphId}_n4`,
+        target_node_uuid: `${graphId}_n3`,
+        name: 'REPORTS_ON',
+        fact_type: 'REPORTS_ON',
+        fact: `A imprensa técnica destacou o impacto positivo na experiência prática da comunidade.`,
+        episodes: ['ep_gen_3'],
+        created_at: now,
+        valid_at: now
+      },
+      {
+        uuid: `${graphId}_e4`,
+        source_node_uuid: `${graphId}_n5`,
+        target_node_uuid: `${graphId}_n2`,
+        name: 'EVALUATES',
+        fact_type: 'EVALUATES',
+        fact: `O comitê de governança homologou os relatórios técnicos apresentados.`,
+        episodes: ['ep_gen_4'],
+        created_at: now,
+        valid_at: now
+      },
+      {
+        uuid: `${graphId}_e5`,
+        source_node_uuid: `${graphId}_n4`,
+        target_node_uuid: `${graphId}_n1`,
+        name: 'REPORTS_ON',
+        fact_type: 'REPORTS_ON',
+        fact: `Indicadores consolidados apontam evolução estável da percepção pública.`,
+        episodes: ['ep_gen_5'],
+        created_at: now,
+        valid_at: now
+      },
+      {
+        uuid: `${graphId}_e6`,
+        source_node_uuid: `${graphId}_n6`,
+        target_node_uuid: `${graphId}_n3`,
+        name: 'ADOPTS',
+        fact_type: 'ADOPTS',
+        fact: `O conselho comunitário acompanha e valida os benefícios diretos percebidos pelos usuários.`,
+        episodes: ['ep_gen_6'],
+        created_at: now,
+        valid_at: now
+      }
+    ]
+  }
+
+  const profiles = [
+    {
+      user_id: 0,
+      username: 'Alexandre Vieira · Especialista Técnico',
+      name: 'alexandre_tech',
+      profession: 'Arquiteto de Soluções e Pesquisador',
+      entity_type: 'TechnicalCommunity',
+      age: 32,
+      gender: 'male',
+      mbti: 'INTJ',
+      country: 'Brasil',
+      bio: `Profissional dedicado a avaliar métricas, viabilidade e consistência em torno de ${topicTitle}.`,
+      persona: 'Racional e analítico. Baseia suas conclusões em evidências empíricas e benchmarks mensuráveis.',
+      interested_topics: ['Eficiência operacional', 'Métricas de desempenho', 'Estabilidade de longo prazo'],
+      karma: 2950,
+      follower_count: 5800,
+      following_count: 240,
+      post_count: 32
+    },
+    {
+      user_id: 1,
+      username: 'Juliana Prado · Gestora de Políticas',
+      name: 'juliana_policy',
+      profession: 'Coordenadora de Estratégia e Governança',
+      entity_type: 'CentralAuthority',
+      age: 38,
+      gender: 'female',
+      mbti: 'ENTJ',
+      country: 'Brasil',
+      bio: `Lidera o planejamento e alinhamento de diretrizes estratégicas para ${topicTitle}.`,
+      persona: 'Estruturada e focada em resultados sustentáveis e transparência comunicacional.',
+      interested_topics: ['Governança responsável', 'Alinhamento regulatório', 'Satisfação dos usuários'],
+      karma: 3400,
+      follower_count: 9200,
+      following_count: 310,
+      post_count: 45
+    },
+    {
+      user_id: 2,
+      username: 'Rodrigo Salles · Representante Comunitário',
+      name: 'rodrigo_user',
+      profession: 'Porta-Voz da Comunidade e Adotante',
+      entity_type: 'ImpactedUsers',
+      age: 27,
+      gender: 'male',
+      mbti: 'ENFP',
+      country: 'Brasil',
+      bio: `Participante ativo que compartilha o feedback cotidiano e as expectativas dos usuários sobre ${topicTitle}.`,
+      persona: 'Pragmático e comunicativo. Valoriza a clareza nas orientações e a facilidade de adoção.',
+      interested_topics: ['Acessibilidade', 'Facilidade de uso', 'Retorno transparente'],
+      karma: 1850,
+      follower_count: 3400,
+      following_count: 190,
+      post_count: 24
+    },
+    {
+      user_id: 3,
+      username: 'Beatriz Ramos · Analista de Tendências',
+      name: 'beatriz_analyst',
+      profession: 'Jornalista e Analista de Mercado',
+      entity_type: 'MarketAnalyst',
+      age: 33,
+      gender: 'female',
+      mbti: 'ENTP',
+      country: 'Brasil',
+      bio: `Acompanha e documenta as ondas de adesão, impactos econômicos e percepções coletivas sobre ${topicTitle}.`,
+      persona: 'Investigativa e articulada. Identifica pontos de inflexão e padrões comportamentais.',
+      interested_topics: ['Tendências setoriais', 'Impacto na opinião pública', 'Inovações emergentes'],
+      karma: 4100,
+      follower_count: 16800,
+      following_count: 480,
+      post_count: 62
+    }
+  ]
+
+  const eventConfig = {
+    narrative_direction: `O anúncio e desdobramento das iniciativas em ${topicTitle} geram debates ativos entre especialistas técnicos, lideranças de governança e comunidades de usuários, com foco na eficácia prática e na sustentabilidade das medidas.`,
+    hot_topics: [
+      `Adoção e Métricas em ${topicTitle.slice(0, 20)}`,
+      'Eficiência Técnica e Melhores Práticas',
+      'Governança e Transparência dos Resultados',
+      'Experiência Prática dos Usuários'
+    ],
+    initial_posts: [
+      {
+        poster_type: 'CentralAuthority',
+        poster_agent_id: 1,
+        content: `[Iniciativa Oficial] Publicamos as diretrizes consolidadas para ${topicTitle}, com foco na transparência e no atendimento das demandas prioritárias da comunidade.`
+      },
+      {
+        poster_type: 'TechnicalCommunity',
+        poster_agent_id: 0,
+        content: `Iniciamos a validação prática dos parâmetros operacionais de ${topicTitle}: os primeiros indicadores mostram estabilidade e potencial de evolução consistente.`
+      }
+    ]
+  }
+
+  const reasoning = `Simulação calibrada com base nos tópicos documentais de ${topicTitle} | Representação balanceada entre governança, especialistas e usuários finais | Pesos distribuídos para capturar reações dinâmicas na Praça e análises profundas na Comunidade`
+  const config = {
+    simulation_id: simId,
+    time_config: {
+      total_simulation_hours: 24,
+      minutes_per_round: 30,
+      agents_per_hour_min: 3,
+      agents_per_hour_max: 6,
+      peak_hours: [19, 20, 21, 22],
+      peak_activity_multiplier: 1.8,
+      work_hours: [9, 10, 11, 14, 15, 16, 17],
+      work_activity_multiplier: 1.2,
+      morning_hours: [7, 8],
+      morning_activity_multiplier: 0.9,
+      off_peak_hours: [0, 1, 2, 3, 4, 5, 6, 23],
+      off_peak_activity_multiplier: 0.3
+    },
+    event_config: eventConfig,
+    twitter_config: {
+      recency_weight: 0.45,
+      popularity_weight: 0.35,
+      relevance_weight: 0.2,
+      viral_threshold: 15,
+      echo_chamber_strength: 0.3
+    },
+    reddit_config: {
+      recency_weight: 0.3,
+      popularity_weight: 0.4,
+      relevance_weight: 0.3,
+      viral_threshold: 10,
+      echo_chamber_strength: 0.25
+    },
+    generation_reasoning: reasoning,
+    agent_configs: profiles.map((p, idx) => ({
+      agent_id: idx,
+      entity_name: p.username,
+      entity_type: p.entity_type,
+      stance: idx % 3 === 0 ? 'supportive' : idx % 3 === 1 ? 'neutral' : 'observer',
+      active_hours: [8, 9, 10, 12, 13, 18, 19, 20, 21, 22],
+      posts_per_hour: 1.5,
+      comments_per_hour: 3.0,
+      response_delay_min: 2,
+      response_delay_max: 15,
+      activity_level: Number((0.82 - idx * 0.05).toFixed(2)),
+      sentiment_bias: Number((0.35 - idx * 0.1).toFixed(2)),
+      influence_weight: Number((2.2 - idx * 0.15).toFixed(2))
+    }))
+  }
+
+  const actions = [
+    {
+      id: 'act_gen_1',
+      round_num: 1,
+      timestamp: '2026-11-06T09:00:00.000Z',
+      platform: 'twitter',
+      agent_id: 1,
+      agent_name: 'Juliana Prado · Gestora de Políticas',
+      action_type: 'CREATE_POST',
+      action_args: {
+        content: `[Comunicado] Diretrizes estratégicas de ${topicTitle} implementadas com sucesso! Nosso compromisso é com a transparência e a melhoria contínua.`
+      }
+    },
+    {
+      id: 'act_gen_2',
+      round_num: 2,
+      timestamp: '2026-11-06T09:10:00.000Z',
+      platform: 'reddit',
+      agent_id: 0,
+      agent_name: 'Alexandre Vieira · Especialista Técnico',
+      action_type: 'CREATE_POST',
+      action_args: {
+        content: `Publicamos a análise técnica preliminar dos resultados de ${topicTitle}: as métricas de conformidade e desempenho atingiram os objetivos esperados nesta etapa.`
+      }
+    },
+    {
+      id: 'act_gen_3',
+      round_num: 3,
+      timestamp: '2026-11-06T09:20:00.000Z',
+      platform: 'twitter',
+      agent_id: 2,
+      agent_name: 'Rodrigo Salles · Representante Comunitário',
+      action_type: 'QUOTE_POST',
+      action_args: {
+        original_post_content: `Diretrizes estratégicas de ${topicTitle} implementadas com sucesso!`,
+        content: `O feedback inicial da comunidade tem sido muito positivo. A clareza das orientações facilitou a adesão imediata de todos os envolvidos.`
+      }
+    },
+    {
+      id: 'act_gen_4',
+      round_num: 4,
+      timestamp: '2026-11-06T09:30:00.000Z',
+      platform: 'reddit',
+      agent_id: 3,
+      agent_name: 'Beatriz Ramos · Analista de Tendências',
+      action_type: 'CREATE_POST',
+      action_args: {
+        content: `[Análise de Mercado] O acompanhamento das discussões sobre ${topicTitle} revela queda substancial nas incertezas iniciais e alta taxa de engajamento qualificado.`
+      }
+    }
+  ]
+
+  const reportTitle = `Relatório Preditivo de Simulação: ${topicTitle}`
+  const reportSummary = `Consolida os achados de 12 rodadas de simulação multiagente sobre ${topicTitle}, projetando tendências de opinião pública, pontos de equilíbrio técnico e recomendações de governança.`
+  const reportSections = [
+    {
+      title: '1. Panorama Geral e Evolução da Opinião Pública',
+      description: 'Reconstituição da trajetória de percepção e estabilização de consensos',
+      toolSummary: 'Recuperados nós relacionais centrais e trajetórias consolidadas nas duas plataformas.',
+      content: `A análise dos dados da simulação demonstra que após o anúncio de **${topicTitle}**, o sentimento comunitário passou por três fases bem definidas:\n\n- **Fase de Esclarecimento Inicial**: Concentração em dúvidas técnicas e prazos operacionais.\n- **Fase de Validação Prática**: Intervenções de especialistas técnicos atuaram como pilares de confiança.\n- **Fase de Convergência**: Adoção ampla com redução expressiva de atritos.`
+    },
+    {
+      title: '2. Articulação Entre Múltiplos Atores e Plataformas',
+      description: 'Divergências construtivas e alinhamento entre técnicos, gestores e usuários',
+      toolSummary: 'Mapeadas as interações e trocas de retorno na Praça (Twitter) e Comunidade (Reddit).',
+      content: `A Praça funcionou como canal ágil de alertas e percepções em tempo real, enquanto a Comunidade permitiu aprofundar diagnósticos e sugestões de aprimoramento contínuo sobre **${topicTitle}**.`
+    },
+    {
+      title: '3. Recomendações Estratégicas e Próximos Passos',
+      description: 'Diretrizes prioritárias para sustentabilidade e governança a longo prazo',
+      toolSummary: 'Sintetizadas 3 recomendações centrais a partir de entrevistas com os agentes.',
+      content: `Recomenda-se manter canais transparentes de comunicação, publicar dados periódicos de progresso e ajustar dinamicamente as operações com base no retorno da comunidade.`
+    }
+  ]
+
+  return {
+    isMinistral: false,
+    project,
+    graph,
+    task: {
+      task_id: taskId,
+      status: 'completed',
+      progress: 100,
+      message: 'Construção do grafo concluída',
+      result: { project_id: projectId, graph_id: graphId, node_count: 6, edge_count: 6 }
+    },
+    profiles,
+    config,
+    actions,
+    buildReport: (repId, sId) => formatSimulationReport(repId, sId, reportTitle, reportSummary, reportSections)
   }
 }
 
@@ -1122,7 +2463,7 @@ export class MiroFishStore {
     return Object.values(this.state.projects).slice(0, limit)
   }
 
-  generateOntology({ simulationRequirement, projectName, files }) {
+  generateOntology({ simulationRequirement, projectName, files, documentContent }) {
     if (!simulationRequirement || !String(simulationRequirement).trim()) {
       throw new Error('Por favor, forneça a descrição do requisito de simulação (simulation_requirement is required)')
     }
@@ -1130,211 +2471,23 @@ export class MiroFishStore {
     const projectId = this.nextId('proj')
     const graphId = this.nextId('graph')
     const taskId = this.nextId('task')
-    const now = new Date().toISOString()
 
-    const normalizedFiles =
-      Array.isArray(files) && files.length > 0
-        ? files.map((f) => ({
-            filename: f.filename || f.name || 'documento.md',
-            size: f.size || 12800
-          }))
-        : [{ filename: 'semente_contexto.md', size: 16384 }]
+    const artifacts = buildContextualSimulationArtifacts({
+      cleanReq,
+      projectName,
+      files,
+      documentContent,
+      projectId,
+      graphId,
+      taskId
+    })
 
-    const ontology = {
-      entity_types: [
-        {
-          name: 'KeyStakeholder',
-          description: 'Partes interessadas centrais e tomadores de decisão do evento',
-          attributes: [
-            { name: 'role', type: 'string', description: 'Papel institucional do ator' },
-            { name: 'influence', type: 'string', description: 'Nível de influência comunicacional' }
-          ],
-          examples: ['Órgão Emissor da Política', 'Instituição Executora', 'Representante Setorial']
-        },
-        {
-          name: 'PublicCommunity',
-          description: 'Grupos públicos participantes do debate e usuários de comunidades temáticas',
-          attributes: [{ name: 'sentiment_tendency', type: 'string', description: 'Tendência emocional inicial' }],
-          examples: ['Público Diretamente Impactado', 'Observadores Racionais', 'Usuários de Linha de Frente']
-        },
-        {
-          name: 'OpinionLeader',
-          description: 'Veículos de mídia e formadores de opinião com capacidade de definir a agenda',
-          attributes: [{ name: 'platform', type: 'string', description: 'Plataforma principal de atuação' }],
-          examples: ['Coluna de Análise Profunda', 'Criador de Testes de Campo']
-        }
-      ],
-      edge_types: [
-        {
-          name: 'RESPONDS_TO',
-          description: 'Comunidades públicas ou líderes de opinião respondem e se posicionam sobre o tema central',
-          attributes: [{ name: 'stance', type: 'string', description: 'Postura de resposta' }],
-          source_targets: [{ source: 'PublicCommunity', target: 'KeyStakeholder' }]
-        },
-        {
-          name: 'AMPLIFIES',
-          description: 'Formadores de opinião amplificam perspectivas comunitárias e geram propagação secundária',
-          attributes: [],
-          source_targets: [{ source: 'OpinionLeader', target: 'PublicCommunity' }]
-        }
-      ]
-    }
+    this.state.contextualArtifactsByProject[projectId] = artifacts
+    this.state.projects[projectId] = artifacts.project
+    this.state.graphs[graphId] = artifacts.graph
+    this.state.tasks[taskId] = artifacts.task
 
-    const project = {
-      project_id: projectId,
-      name: projectName || cleanReq.slice(0, 24),
-      status: 'graph_completed',
-      simulation_requirement: cleanReq,
-      graph_id: graphId,
-      graph_build_task_id: taskId,
-      ontology,
-      analysis_summary: `Análise documental multifonte e modelagem ontológica concluídas para "${cleanReq.slice(0, 50)}", identificando 3 classes de entidades centrais e 2 tipos de relação de propagação.`,
-      files: normalizedFiles,
-      total_text_length: 19600,
-      chunk_size: 500,
-      chunk_overlap: 50,
-      created_at: now
-    }
-
-    this.state.projects[projectId] = project
-    this.state.graphs[graphId] = {
-      graph_id: graphId,
-      node_count: 6,
-      edge_count: 6,
-      nodes: [
-        {
-          uuid: `${graphId}_n1`,
-          name: 'Emissor Central da Pauta',
-          labels: ['Entity', 'KeyStakeholder'],
-          summary: `Lidera a publicação de diretrizes e respostas institucionais sobre "${cleanReq.slice(0, 30)}".`,
-          attributes: { role: 'Tomador de Decisão', influence: 'Alta' },
-          created_at: now
-        },
-        {
-          uuid: `${graphId}_n2`,
-          name: 'Grupo Diretamente Impactado',
-          labels: ['Entity', 'PublicCommunity'],
-          summary: 'Participantes centrais que vivenciam diretamente os efeitos práticos da medida ou evento.',
-          attributes: { sentiment_tendency: 'Expectativa Cautelosa' },
-          created_at: now
-        },
-        {
-          uuid: `${graphId}_n3`,
-          name: 'Mídia Especializada de Análise',
-          labels: ['Entity', 'OpinionLeader'],
-          summary: 'Veículo que fornece detalhamento de dados e cobertura equilibrada sob múltiplos ângulos.',
-          attributes: { platform: 'Atuação nas Duas Plataformas' },
-          created_at: now
-        },
-        {
-          uuid: `${graphId}_n4`,
-          name: 'Comunidade Geral de Debate Social',
-          labels: ['Entity', 'PublicCommunity'],
-          summary: 'Usuários ativos que interagem em alta frequência sobre os tópicos em alta na Praça e na Comunidade.',
-          attributes: { sentiment_tendency: 'Plural e Diversificada' },
-          created_at: now
-        },
-        {
-          uuid: `${graphId}_n5`,
-          name: 'Criador Independente de Testes Práticos',
-          labels: ['Entity', 'OpinionLeader'],
-          summary: 'Influenciador que orienta a percepção pública por meio de relatos presenciais e verificações em campo.',
-          attributes: { platform: 'Foco na Praça' },
-          created_at: now
-        },
-        {
-          uuid: `${graphId}_n6`,
-          name: 'Equipe de Governança e Operação',
-          labels: ['Entity', 'KeyStakeholder'],
-          summary: 'Equipe operacional responsável pelo suporte de serviços, coleta de feedback e ajustes finos.',
-          attributes: { role: 'Execução Operacional', influence: 'Média-Alta' },
-          created_at: now
-        }
-      ],
-      edges: [
-        {
-          uuid: `${graphId}_e1`,
-          source_node_uuid: `${graphId}_n2`,
-          target_node_uuid: `${graphId}_n1`,
-          name: 'RESPONDS_TO',
-          fact_type: 'RESPONDS_TO',
-          fact: 'O grupo diretamente impactado apresenta sugestões construtivas de aprimoramento sobre os detalhes operacionais.',
-          episodes: ['ep_init_1'],
-          created_at: now,
-          valid_at: now
-        },
-        {
-          uuid: `${graphId}_e2`,
-          source_node_uuid: `${graphId}_n3`,
-          target_node_uuid: `${graphId}_n2`,
-          name: 'AMPLIFIES',
-          fact_type: 'AMPLIFIES',
-          fact: 'A mídia especializada sistematiza as demandas da linha de frente e publica reportagem analítica.',
-          episodes: ['ep_init_2'],
-          created_at: now,
-          valid_at: now
-        },
-        {
-          uuid: `${graphId}_e3`,
-          source_node_uuid: `${graphId}_n5`,
-          target_node_uuid: `${graphId}_n4`,
-          name: 'AMPLIFIES',
-          fact_type: 'AMPLIFIES',
-          fact: 'O criador de testes práticos divulga relato em primeira mão, reduzindo significativamente a ansiedade do público.',
-          episodes: ['ep_init_3'],
-          created_at: now,
-          valid_at: now
-        },
-        {
-          uuid: `${graphId}_e4`,
-          source_node_uuid: `${graphId}_n6`,
-          target_node_uuid: `${graphId}_n2`,
-          name: 'RESPONDS_TO',
-          fact_type: 'RESPONDS_TO',
-          fact: 'A equipe operacional responde rapidamente ao feedback inicial e anuncia medidas complementares de melhoria.',
-          episodes: ['ep_init_4'],
-          created_at: now,
-          valid_at: now
-        },
-        {
-          uuid: `${graphId}_e5`,
-          source_node_uuid: `${graphId}_n4`,
-          target_node_uuid: `${graphId}_n1`,
-          name: 'RESPONDS_TO',
-          fact_type: 'RESPONDS_TO',
-          fact: 'O foco do debate público migra das controvérsias iniciais sobre regras para a experiência prática dos serviços.',
-          episodes: ['ep_init_5'],
-          created_at: now,
-          valid_at: now
-        },
-        {
-          uuid: `${graphId}_e6`,
-          source_node_uuid: `${graphId}_n3`,
-          target_node_uuid: `${graphId}_n6`,
-          name: 'AMPLIFIES',
-          fact_type: 'AMPLIFIES',
-          fact: 'A mídia destaca o efeito positivo do mecanismo de resposta ágil na estabilização da opinião pública.',
-          episodes: ['ep_init_6'],
-          created_at: now,
-          valid_at: now
-        }
-      ]
-    }
-
-    this.state.tasks[taskId] = {
-      task_id: taskId,
-      status: 'completed',
-      progress: 100,
-      message: 'Construção do grafo concluída',
-      result: {
-        project_id: projectId,
-        graph_id: graphId,
-        node_count: 6,
-        edge_count: 6
-      }
-    }
-
-    return project
+    return artifacts.project
   }
 
   buildGraph({ project_id }) {
@@ -1365,13 +2518,36 @@ export class MiroFishStore {
     const simId = this.nextId('sim')
     const reportId = this.nextId('report')
     const project = this.state.projects[project_id] || this.state.projects.proj_whu2025
-    const profiles = [...this.state.profilesBySim.sim_whu2025]
+
+    let artifacts = this.state.contextualArtifactsByProject[project.project_id]
+    if (!artifacts) {
+      artifacts = buildContextualSimulationArtifacts({
+        cleanReq: project.simulation_requirement,
+        projectName: project.name,
+        files: project.files,
+        documentContent: '',
+        projectId: project.project_id,
+        graphId: graph_id || project.graph_id,
+        taskId: project.graph_build_task_id || this.nextId('task'),
+        simId,
+        reportId
+      })
+      this.state.contextualArtifactsByProject[project.project_id] = artifacts
+    }
+
+    const profiles = artifacts.profiles
     this.state.profilesBySim[simId] = profiles
     this.state.configsBySim[simId] = {
-      ...this.state.configsBySim.sim_whu2025,
+      ...artifacts.config,
       simulation_id: simId
     }
-    this.state.actionsBySim[simId] = [...this.state.actionsBySim.sim_whu2025]
+    this.state.actionsBySim[simId] = artifacts.actions.map((a) => ({
+      ...a,
+      id: a.id.startsWith(simId) ? a.id : `${simId}_${a.id}`
+    }))
+
+    const reportEntry = artifacts.buildReport(reportId, simId)
+    this.state.reports[reportId] = reportEntry
 
     const sim = {
       simulation_id: simId,
@@ -1386,24 +2562,6 @@ export class MiroFishStore {
       created_at: new Date().toISOString()
     }
     this.state.simulations[simId] = sim
-
-    // Seed report for newly created simulation
-    const baseReport = this.state.reports.report_whu2025
-    this.state.reports[reportId] = {
-      report: {
-        ...baseReport.report,
-        report_id: reportId,
-        simulation_id: simId,
-        outline: {
-          ...baseReport.report.outline,
-          title: `${project.name} - Relatório de Evolução da Opinião Pública`
-        }
-      },
-      logs: baseReport.logs.map((l) => ({ ...l, report_id: reportId })),
-      consoleLogs: [...baseReport.consoleLogs],
-      sections: [...baseReport.sections]
-    }
-
     return sim
   }
 
@@ -1412,15 +2570,36 @@ export class MiroFishStore {
   }
 
   getProfiles(simulationId) {
-    return this.state.profilesBySim[simulationId] || this.state.profilesBySim.sim_whu2025
+    if (this.state.profilesBySim[simulationId]) {
+      return this.state.profilesBySim[simulationId]
+    }
+    const sim = this.state.simulations[simulationId]
+    if (sim && this.state.contextualArtifactsByProject[sim.project_id]) {
+      return this.state.contextualArtifactsByProject[sim.project_id].profiles
+    }
+    return this.state.profilesBySim.sim_whu2025
   }
 
   getConfig(simulationId) {
-    return this.state.configsBySim[simulationId] || this.state.configsBySim.sim_whu2025
+    if (this.state.configsBySim[simulationId]) {
+      return this.state.configsBySim[simulationId]
+    }
+    const sim = this.state.simulations[simulationId]
+    if (sim && this.state.contextualArtifactsByProject[sim.project_id]) {
+      return this.state.contextualArtifactsByProject[sim.project_id].config
+    }
+    return this.state.configsBySim.sim_whu2025
   }
 
   getActions(simulationId) {
-    return this.state.actionsBySim[simulationId] || this.state.actionsBySim.sim_whu2025
+    if (this.state.actionsBySim[simulationId]) {
+      return this.state.actionsBySim[simulationId]
+    }
+    const sim = this.state.simulations[simulationId]
+    if (sim && this.state.contextualArtifactsByProject[sim.project_id]) {
+      return this.state.contextualArtifactsByProject[sim.project_id].actions
+    }
+    return this.state.actionsBySim.sim_whu2025
   }
 
   getRunStatus(simulationId) {
@@ -1459,6 +2638,11 @@ export class MiroFishStore {
     if (sim && sim.report_id && this.state.reports[sim.report_id]) {
       return this.state.reports[sim.report_id]
     }
+    if (sim && this.state.contextualArtifactsByProject[sim.project_id]) {
+      const art = this.state.contextualArtifactsByProject[sim.project_id]
+      const reportId = sim.report_id || `rep_${sim.simulation_id}`
+      return art.buildReport(reportId, sim.simulation_id)
+    }
     return this.state.reports.report_whu2025
   }
 
@@ -1467,12 +2651,15 @@ export class MiroFishStore {
       throw new Error('O conteúdo da mensagem não pode estar vazio (message is required)')
     }
     const sim = this.getSimulation(simulation_id)
-    const proj = this.state.projects[sim.project_id] || this.state.projects.proj_whu2025
-    const profiles = this.getProfiles(sim.simulation_id)
+    const proj = this.state.projects[sim?.project_id] || this.state.projects.proj_whu2025
+    const profiles = this.getProfiles(simulation_id)
     const cleanMsg = String(message).trim()
 
+    const agentA = profiles[0]?.username || 'Especialista Técnico'
+    const agentB = profiles[1]?.username || 'Avaliador de Benchmarks'
+
     return {
-      response: `Com base no grafo de conhecimento de **${proj.name}** e na trajetória de ${sim.total_rounds} rodadas nas duas plataformas, segue a análise sobre "${cleanMsg}":\n\n1. **Tendência Central da Opinião Pública**: Nas primeiras 4 rodadas da simulação, o debate girou em torno da equidade das regras e dos limites operacionais; com a entrada de relatos práticos (como **${profiles[0]?.username || 'Representante Acadêmico'}** e **${profiles[1]?.username || 'Representante Voluntária'}**), o consenso comunitário convergiu rapidamente.\n2. **Dinâmica Entre Plataformas**: A Praça (Twitter) concentrou o compartilhamento visual e reações imediatas, enquanto a Comunidade (Reddit) aprofundou propostas práticas (como filas escalonadas e realocação de vagas).\n3. **Recomendação de Decisão**: Manter a transparência dos indicadores de operação em tempo real e adotar medidas elásticas de atendimento nos horários de pico.`,
+      response: `Com base no grafo de conhecimento de **${proj.name}** e na trajetória de ${sim.total_rounds || 12} rodadas nas duas plataformas, segue a análise sobre "${cleanMsg}":\n\n1. **Tendência Central da Opinião Pública**: A opinião pública e as avaliações técnicas concentraram-se na eficiência prática e na viabilidade das métricas apresentadas. Intervenções de destaque de agentes como **${agentA}** e **${agentB}** estabilizaram os pontos de dúvida inicial.\n2. **Dinâmica Entre Plataformas**: A Praça (Twitter) funcionou como termômetro de impacto imediato e citações de testes práticos, enquanto a Comunidade (Reddit) aprofundou debates metodológicos, configurações de hardware e limites de desempenho.\n3. **Recomendações e Próximos Passos**: Manter a transparência de métricas e disponibilizar diretrizes claras para implementação e governança com base nos dados observados.`,
       tool_calls: [
         {
           tool_name: 'insight_forge',
@@ -1488,13 +2675,15 @@ export class MiroFishStore {
 
   interviewAgents({ simulation_id, interviews = [] }) {
     const profiles = this.getProfiles(simulation_id)
+    const sim = this.getSimulation(simulation_id)
+    const proj = this.state.projects[sim?.project_id] || this.state.projects.proj_whu2025
     const results = {}
 
     interviews.forEach((item) => {
       const agentId = Number(item.agent_id ?? 0)
       const prompt = String(item.prompt || '').trim()
       const agent = profiles[agentId] || profiles[0]
-      const reply = `[${agent.username} (${agent.profession})] em resposta a "${prompt.slice(0, 60)}":\nSob a perspectiva do meu grupo (**${agent.entity_type}**), o ponto essencial é equilibrar a transparência na aplicação das regras com a experiência cotidiana de quem está no local. Desde que os temas prioritários (${(agent.interested_topics || []).join(', ')}) continuem recebendo ajustes dinâmicos, mantenho uma avaliação positiva sobre os próximos desdobramentos.`
+      const reply = `[${agent.username} (${agent.profession})] em resposta a "${prompt.slice(0, 60)}":\nSob a perspectiva de **${agent.entity_type}** no contexto de ${proj.name}, o fator primordial é validar o desempenho real com métricas consistentes. Nossos temas prioritários (${(agent.interested_topics || []).join(', ')}) mostram que há um consenso positivo, desde que as condições de execução e governança continuem estáveis.`
 
       results[`reddit_${agentId}`] = {
         agent_id: agentId,
@@ -1522,3 +2711,4 @@ export class MiroFishStore {
 }
 
 export const defaultStore = new MiroFishStore()
+

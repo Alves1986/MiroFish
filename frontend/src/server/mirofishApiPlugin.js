@@ -226,7 +226,8 @@ function createApiMiddleware(store = defaultStore) {
         const project = store.generateOntology({
           simulationRequirement,
           projectName: body.project_name,
-          files: body.files
+          files: body.files,
+          documentContent: body.document_content || ''
         })
         return sendJson(res, 200, {
           success: true,

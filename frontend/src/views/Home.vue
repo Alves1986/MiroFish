@@ -235,9 +235,8 @@ const isDragOver = ref(false)
 // 文件输入引用
 const fileInput = ref(null)
 
-// 计算属性:是否可以提交
 const canSubmit = computed(() => {
-  return formData.value.simulationRequirement.trim() !== '' && files.value.length > 0
+  return formData.value.simulationRequirement.trim() !== '' || files.value.length > 0
 })
 
 // 触发文件选择
@@ -295,19 +294,33 @@ const scrollToBottom = () => {
 }
 
 // 开始模拟 - 立即跳转，API调用在Process页面进行
-const startSimulation = () => {
+const startSimulation = async () => {
   if (!canSubmit.value || loading.value) return
+  loading.value = true
   
-  // 存储待上传的数据
-  import('../store/pendingUpload.js').then(({ setPendingUpload }) => {
-    setPendingUpload(files.value, formData.value.simulationRequirement)
+  try {
+    const { setPendingUpload } = await import('../store/pendingUpload.js')
+    const filesToSend = files.value.length > 0 ? files.value : [
+      {
+        name: 'prompt_simulacao.md',
+        filename: 'prompt_simulacao.md',
+        size: formData.value.simulationRequirement.length || 1024,
+        content: formData.value.simulationRequirement,
+        text: async () => formData.value.simulationRequirement
+      }
+    ]
+    await setPendingUpload(filesToSend, formData.value.simulationRequirement)
     
     // 立即跳转到Process页面（使用特殊标识表示新建项目）
     router.push({
       name: 'Process',
       params: { projectId: 'new' }
     })
-  })
+  } catch (err) {
+    console.error('Erro ao preparar envio:', err)
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
