@@ -24,7 +24,7 @@
         <LanguageSwitcher />
         <div class="step-divider"></div>
         <div class="workflow-step">
-          <span class="step-num">Step {{ currentStep }}/5</span>
+          <span class="step-num">Etapa {{ currentStep }}/5</span>
           <span class="step-name">{{ $tm('main.stepNames')[currentStep - 1] }}</span>
         </div>
         <div class="step-divider"></div>
@@ -135,11 +135,11 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
-  if (error.value) return 'Error'
-  if (currentPhase.value >= 2) return 'Ready'
-  if (currentPhase.value === 1) return 'Building Graph'
-  if (currentPhase.value === 0) return 'Generating Ontology'
-  return 'Initializing'
+  if (error.value) return 'Erro'
+  if (currentPhase.value >= 2) return 'Pronto'
+  if (currentPhase.value === 1) return 'Construindo Grafo'
+  if (currentPhase.value === 0) return 'Gerando Ontologia'
+  return 'Inicializando'
 })
 
 // --- Helpers ---
@@ -183,7 +183,7 @@ const handleGoBack = () => {
 // --- Data Logic ---
 
 const initProject = async () => {
-  addLog('Project view initialized.')
+  addLog('Visualização do projeto inicializada.')
   if (currentProjectId.value === 'new') {
     await handleNewProject()
   } else {
@@ -194,16 +194,16 @@ const initProject = async () => {
 const handleNewProject = async () => {
   const pending = getPendingUpload()
   if (!pending.isPending || pending.files.length === 0) {
-    error.value = 'No pending files found.'
-    addLog('Error: No pending files found for new project.')
+    error.value = 'Nenhum arquivo pendente encontrado.'
+    addLog('Erro: Nenhum arquivo pendente encontrado para o novo projeto.')
     return
   }
   
   try {
     loading.value = true
     currentPhase.value = 0
-    ontologyProgress.value = { message: 'Uploading and analyzing docs...' }
-    addLog('Starting ontology generation: Uploading files...')
+    ontologyProgress.value = { message: 'Enviando e analisando documentos...' }
+    addLog('Iniciando geração de ontologia: Enviando arquivos...')
     
     const formData = new FormData()
     pending.files.forEach(f => formData.append('files', f))
@@ -217,15 +217,15 @@ const handleNewProject = async () => {
       
       router.replace({ name: 'Process', params: { projectId: res.data.project_id } })
       ontologyProgress.value = null
-      addLog(`Ontology generated successfully for project ${res.data.project_id}`)
+      addLog(`Ontologia gerada com sucesso para o projeto ${res.data.project_id}`)
       await startBuildGraph()
     } else {
-      error.value = res.error || 'Ontology generation failed'
-      addLog(`Error generating ontology: ${error.value}`)
+      error.value = res.error || 'Falha na geração da ontologia'
+      addLog(`Erro ao gerar ontologia: ${error.value}`)
     }
   } catch (err) {
     error.value = err.message
-    addLog(`Exception in handleNewProject: ${err.message}`)
+    addLog(`Exceção em handleNewProject: ${err.message}`)
   } finally {
     loading.value = false
   }
@@ -234,12 +234,12 @@ const handleNewProject = async () => {
 const loadProject = async () => {
   try {
     loading.value = true
-    addLog(`Loading project ${currentProjectId.value}...`)
+    addLog(`Carregando projeto ${currentProjectId.value}...`)
     const res = await getProject(currentProjectId.value)
     if (res.success) {
       projectData.value = res.data
       updatePhaseByStatus(res.data.status)
-      addLog(`Project loaded. Status: ${res.data.status}`)
+      addLog(`Projeto carregado. Status: ${res.data.status}`)
       
       if (res.data.status === 'ontology_generated' && !res.data.graph_id) {
         await startBuildGraph()
@@ -252,11 +252,11 @@ const loadProject = async () => {
       }
     } else {
       error.value = res.error
-      addLog(`Error loading project: ${res.error}`)
+      addLog(`Erro ao carregar projeto: ${res.error}`)
     }
   } catch (err) {
     error.value = err.message
-    addLog(`Exception in loadProject: ${err.message}`)
+    addLog(`Exceção em loadProject: ${err.message}`)
   } finally {
     loading.value = false
   }
@@ -370,17 +370,17 @@ const pollTaskStatus = async (taskId) => {
 
 const loadGraph = async (graphId) => {
   graphLoading.value = true
-  addLog(`Loading full graph data: ${graphId}`)
+  addLog(`Carregando dados completos do grafo: ${graphId}`)
   try {
     const res = await getGraphData(graphId)
     if (res.success) {
       graphData.value = res.data
-      addLog('Graph data loaded successfully.')
+      addLog('Dados do grafo carregados com sucesso.')
     } else {
-      addLog(`Failed to load graph data: ${res.error}`)
+      addLog(`Falha ao carregar dados do grafo: ${res.error}`)
     }
   } catch (e) {
-    addLog(`Exception loading graph: ${e.message}`)
+    addLog(`Exceção ao carregar grafo: ${e.message}`)
   } finally {
     graphLoading.value = false
   }
@@ -388,7 +388,7 @@ const loadGraph = async (graphId) => {
 
 const refreshGraph = () => {
   if (projectData.value?.graph_id) {
-    addLog('Manual graph refresh triggered.')
+    addLog('Atualização manual do grafo acionada.')
     loadGraph(projectData.value.graph_id)
   }
 }

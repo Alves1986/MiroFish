@@ -1,0 +1,8 @@
+{
+  "name": "MiroFish Swarm Intelligence Engine",
+  "description": "MiroFish - 简洁通用的群体智能引擎与社交媒体舆论推演模拟系统 (Swarm Intelligence Social Opinion Simulation Engine)",
+  "requestFramePermissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

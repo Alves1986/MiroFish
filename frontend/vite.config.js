@@ -1,10 +1,11 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
+import { mirofishApiPlugin } from './src/server/mirofishApiPlugin.js'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), mirofishApiPlugin()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
@@ -12,14 +13,15 @@ export default defineConfig({
     }
   },
   server: {
+    host: '0.0.0.0',
     port: 3000,
-    open: true,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:5001',
-        changeOrigin: true,
-        secure: false
-      }
-    }
+    open: false,
+    allowedHosts: true
+  },
+  preview: {
+    host: '0.0.0.0',
+    port: 3000,
+    allowedHosts: true
   }
 })
+

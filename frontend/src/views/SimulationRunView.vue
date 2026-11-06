@@ -24,7 +24,7 @@
         <LanguageSwitcher />
         <div class="step-divider"></div>
         <div class="workflow-step">
-          <span class="step-num">Step 3/5</span>
+          <span class="step-num">Etapa 3/5</span>
           <span class="step-name">{{ $tm('main.stepNames')[2] }}</span>
         </div>
         <div class="step-divider"></div>
@@ -120,9 +120,9 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
-  if (currentStatus.value === 'error') return 'Error'
-  if (currentStatus.value === 'completed') return 'Completed'
-  return 'Running'
+  if (currentStatus.value === 'error') return 'Erro'
+  if (currentStatus.value === 'completed') return 'Concluído'
+  return 'Executando'
 })
 
 const isSimulating = computed(() => currentStatus.value === 'processing')

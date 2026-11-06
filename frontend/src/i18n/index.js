@@ -14,12 +14,18 @@ for (const path in localeFiles) {
   }
 }
 
-const savedLocale = localStorage.getItem('locale') || 'zh'
+if (!localStorage.getItem('locale_pt_br_default')) {
+  localStorage.setItem('locale', 'pt')
+  localStorage.setItem('locale_pt_br_default', '1')
+}
+
+const savedLocale = localStorage.getItem('locale') || 'pt'
+document.documentElement.lang = savedLocale
 
 const i18n = createI18n({
   legacy: false,
   locale: savedLocale,
-  fallbackLocale: 'zh',
+  fallbackLocale: 'pt',
   messages
 })
 

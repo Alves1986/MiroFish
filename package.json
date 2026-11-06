@@ -3,16 +3,23 @@
   "version": "0.1.0",
   "description": "MiroFish - 简洁通用的群体智能引擎，预测万物",
   "scripts": {
-    "setup": "npm install && cd frontend && npm install",
-    "setup:backend": "cd backend && uv sync",
-    "setup:all": "npm run setup && npm run setup:backend",
-    "dev": "concurrently --kill-others -n \"backend,frontend\" -c \"green,cyan\" \"npm run backend\" \"npm run frontend\"",
-    "backend": "cd backend && uv run python run.py",
-    "frontend": "cd frontend && npm run dev",
-    "build": "cd frontend && npm run build"
+    "setup": "npm install",
+    "dev": "cd frontend && vite --host 0.0.0.0 --port 3000",
+    "build": "cd frontend && vite build",
+    "start": "cd frontend && vite preview --host 0.0.0.0 --port 3000",
+    "lint": "node --check frontend/vite.config.js && node --check frontend/src/server/mirofishData.js && node --check frontend/src/server/mirofishApiPlugin.js"
+  },
+  "dependencies": {
+    "axios": "^1.18.1",
+    "d3": "^7.9.0",
+    "vue": "^3.5.24",
+    "vue-i18n": "^11.3.0",
+    "vue-router": "^4.6.3"
   },
   "devDependencies": {
-    "concurrently": "^9.2.4"
+    "@vitejs/plugin-vue": "^6.0.1",
+    "concurrently": "^9.2.4",
+    "vite": "^7.3.6"
   },
   "engines": {
     "node": ">=18.0.0"

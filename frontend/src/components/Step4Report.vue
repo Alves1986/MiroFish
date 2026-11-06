@@ -8,7 +8,7 @@
           <!-- Report Header -->
           <div class="report-header-block">
             <div class="report-meta">
-              <span class="report-tag">Prediction Report</span>
+              <span class="report-tag">Relatório de Previsão</span>
               <span class="report-id">ID: {{ reportId || 'REF-2024-X92' }}</span>
             </div>
             <h1 class="main-title">{{ reportOutline.title }}</h1>
@@ -72,7 +72,7 @@
             <div class="waiting-ring"></div>
             <div class="waiting-ring"></div>
           </div>
-          <span class="waiting-text">Waiting for Report Agent...</span>
+          <span class="waiting-text">{{ $t('step4.waitingForReportAgent') }}</span>
         </div>
       </div>
 
@@ -89,15 +89,15 @@
         <div class="workflow-overview" v-if="agentLogs.length > 0 || reportOutline">
           <div class="workflow-metrics">
             <div class="metric">
-              <span class="metric-label">Sections</span>
+              <span class="metric-label">Seções</span>
               <span class="metric-value mono">{{ completedSections }}/{{ totalSections }}</span>
             </div>
             <div class="metric">
-              <span class="metric-label">Elapsed</span>
+              <span class="metric-label">Tempo</span>
               <span class="metric-value mono">{{ formatElapsedTime }}</span>
             </div>
             <div class="metric">
-              <span class="metric-label">Tools</span>
+              <span class="metric-label">Ferramentas</span>
               <span class="metric-value mono">{{ totalToolCalls }}</span>
             </div>
             <div class="metric metric-right">
@@ -166,11 +166,11 @@
                   <!-- Report Start -->
                   <template v-if="log.action === 'report_start'">
                     <div class="info-row">
-                      <span class="info-key">Simulation</span>
+                      <span class="info-key">Simulação</span>
                       <span class="info-val mono">{{ log.details?.simulation_id }}</span>
                     </div>
                     <div class="info-row" v-if="log.details?.simulation_requirement">
-                      <span class="info-key">Requirement</span>
+                      <span class="info-key">Requisito</span>
                       <span class="info-val">{{ log.details.simulation_requirement }}</span>
                     </div>
                   </template>
@@ -182,7 +182,7 @@
                   <template v-if="log.action === 'planning_complete'">
                     <div class="status-message success">{{ log.details?.message }}</div>
                     <div class="outline-badge" v-if="log.details?.outline">
-                      {{ log.details.outline.sections?.length || 0 }} sections planned
+                      {{ log.details.outline.sections?.length || 0 }} seções planejadas
                     </div>
                   </template>
 
@@ -334,7 +334,7 @@
                         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                         <polyline points="22 4 12 14.01 9 11.01"></polyline>
                       </svg>
-                      <span>Report Generation Complete</span>
+                      <span>Geração do Relatório Concluída</span>
                     </div>
                   </template>
                 </div>
@@ -347,17 +347,17 @@
                   <div class="footer-actions">
                     <!-- Tool Call: Show/Hide Params -->
                     <button v-if="log.action === 'tool_call' && log.details?.parameters" class="action-btn" @click.stop="toggleLogExpand(log)">
-                      {{ expandedLogs.has(log.timestamp) ? 'Hide Params' : 'Show Params' }}
+                      {{ expandedLogs.has(log.timestamp) ? 'Ocultar Parâmetros' : 'Mostrar Parâmetros' }}
                     </button>
                     
                     <!-- Tool Result: Raw/Structured View -->
                     <button v-if="log.action === 'tool_result'" class="action-btn" @click.stop="toggleRawResult(log.timestamp, $event)">
-                      {{ showRawResult[log.timestamp] ? 'Structured View' : 'Raw Output' }}
+                      {{ showRawResult[log.timestamp] ? 'Visão Estruturada' : 'Saída Bruta' }}
                     </button>
                     
                     <!-- LLM Response: Show/Hide Response -->
                     <button v-if="log.action === 'llm_response' && log.details?.response" class="action-btn" @click.stop="toggleLogExpand(log)">
-                      {{ expandedLogs.has(log.timestamp) ? 'Hide Response' : 'Show Response' }}
+                      {{ expandedLogs.has(log.timestamp) ? 'Ocultar Resposta' : 'Mostrar Resposta' }}
                     </button>
                   </div>
                 </div>
@@ -368,7 +368,7 @@
           <!-- Empty State -->
           <div v-if="agentLogs.length === 0 && !isComplete" class="workflow-empty">
             <div class="empty-pulse"></div>
-            <span>Waiting for agent activity...</span>
+            <span>Aguardando atividade do agente...</span>
           </div>
         </div>
       </div>
@@ -377,8 +377,8 @@
     <!-- Bottom Console Logs -->
     <div class="console-logs">
       <div class="log-header">
-        <span class="log-title">CONSOLE OUTPUT</span>
-        <span class="log-id">{{ reportId || 'NO_REPORT' }}</span>
+        <span class="log-title">SAÍDA DO CONSOLE</span>
+        <span class="log-id">{{ reportId || 'SEM_RELATÓRIO' }}</span>
       </div>
       <div class="log-content" ref="logContent">
         <div class="log-line" v-for="(log, idx) in consoleLogs" :key="idx">
@@ -497,34 +497,34 @@ const isLogCollapsed = (log) => {
 // Tool configurations with display names and colors
 const toolConfig = {
   'insight_forge': {
-    name: 'Deep Insight',
+    name: 'Insight Profundo',
     color: 'purple',
-    icon: 'lightbulb' // 灯泡图标 - 代表洞察
+    icon: 'lightbulb'
   },
   'panorama_search': {
-    name: 'Panorama Search',
+    name: 'Busca Panorâmica',
     color: 'blue',
-    icon: 'globe' // 地球图标 - 代表全景搜索
+    icon: 'globe'
   },
   'interview_agents': {
-    name: 'Agent Interview',
+    name: 'Entrevista com Agentes',
     color: 'green',
-    icon: 'users' // 用户图标 - 代表对话
+    icon: 'users'
   },
   'quick_search': {
-    name: 'Quick Search',
+    name: 'Busca Rápida',
     color: 'orange',
-    icon: 'zap' // 闪电图标 - 代表快速
+    icon: 'zap'
   },
   'get_graph_statistics': {
-    name: 'Graph Stats',
+    name: 'Estatísticas do Grafo',
     color: 'cyan',
-    icon: 'chart' // 图表图标 - 代表统计
+    icon: 'chart'
   },
   'get_entities_by_type': {
-    name: 'Entity Query',
+    name: 'Consulta de Entidades',
     color: 'pink',
-    icon: 'database' // 数据库图标 - 代表实体
+    icon: 'database'
   }
 }
 
@@ -1713,9 +1713,9 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
-  if (isComplete.value) return 'Completed'
-  if (agentLogs.value.length > 0) return 'Generating...'
-  return 'Waiting'
+  if (isComplete.value) return 'Concluído'
+  if (agentLogs.value.length > 0) return 'Gerando...'
+  return 'Aguardando'
 })
 
 const totalSections = computed(() => {
@@ -1792,9 +1792,9 @@ const workflowSteps = computed(() => {
   steps.push({
     key: 'planning',
     noLabel: 'PL',
-    title: 'Planning / Outline',
+    title: 'Planejamento / Estrutura',
     status: planningStatus,
-    meta: planningStatus === 'active' ? 'IN PROGRESS' : ''
+    meta: planningStatus === 'active' ? 'EM ANDAMENTO' : ''
   })
 
   // Sections (if outline exists)
@@ -1810,7 +1810,7 @@ const workflowSteps = computed(() => {
       noLabel: String(idx).padStart(2, '0'),
       title: section.title,
       status,
-      meta: status === 'active' ? 'IN PROGRESS' : ''
+      meta: status === 'active' ? 'EM ANDAMENTO' : ''
     })
   })
 
@@ -1819,9 +1819,9 @@ const workflowSteps = computed(() => {
   steps.push({
     key: 'complete',
     noLabel: 'OK',
-    title: 'Complete',
+    title: 'Concluído',
     status: completeStatus,
-    meta: completeStatus === 'active' ? 'FINALIZING' : ''
+    meta: completeStatus === 'active' ? 'FINALIZANDO' : ''
   })
 
   return steps
@@ -1996,16 +1996,16 @@ const getConnectorClass = (log, idx, total) => {
 
 const getActionLabel = (action) => {
   const labels = {
-    'report_start': 'Report Started',
-    'planning_start': 'Planning',
-    'planning_complete': 'Plan Complete',
-    'section_start': 'Section Start',
-    'section_content': 'Content Ready',
-    'section_complete': 'Section Done',
-    'tool_call': 'Tool Call',
-    'tool_result': 'Tool Result',
-    'llm_response': 'LLM Response',
-    'report_complete': 'Complete'
+    'report_start': 'Relatório Iniciado',
+    'planning_start': 'Planejamento',
+    'planning_complete': 'Estrutura Concluída',
+    'section_start': 'Início da Seção',
+    'section_content': 'Conteúdo Pronto',
+    'section_complete': 'Seção Concluída',
+    'tool_call': 'Chamada de Ferramenta',
+    'tool_result': 'Resultado da Ferramenta',
+    'llm_response': 'Resposta do LLM',
+    'report_complete': 'Concluído'
   }
   return labels[action] || action
 }
