@@ -6,13 +6,29 @@ import service from './index'
  * @returns {Promise}
  */
 export function generateOntology(formData) {
+  let payload = formData
+  if (typeof FormData !== 'undefined' && formData instanceof FormData) {
+    const files = []
+    const rawFiles = formData.getAll('files')
+    for (const item of rawFiles) {
+      if (item && typeof item === 'object') {
+        files.push({
+          filename: item.name || item.filename || 'documento.pdf',
+          size: item.size || 24576
+        })
+      }
+    }
+    payload = {
+      simulation_requirement: formData.get('simulation_requirement') || '',
+      project_name: formData.get('project_name') || '',
+      files
+    }
+  }
+
   return service({
     url: '/api/graph/ontology/generate',
     method: 'post',
-    data: formData,
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
+    data: payload
   })
 }
 

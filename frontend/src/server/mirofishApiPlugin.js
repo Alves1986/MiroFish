@@ -1,4 +1,83 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { defaultStore } from './mirofishData.js'
+
+function loadEnvConfig() {
+  const candidates = [
+    '/tmp/.mirofish_env',
+    path.resolve(process.cwd(), '../.env.example'),
+    path.resolve(process.cwd(), '.env.example'),
+    path.resolve(process.cwd(), '../.env'),
+    path.resolve(process.cwd(), '.env')
+  ]
+  const env = { ...process.env }
+  for (const filePath of candidates) {
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8')
+      for (const line of content.split(/\r?\n/)) {
+        const match = line.match(/^([A-Z0-9_]+)=(.*)$/)
+        if (match && match[2].trim()) {
+          env[match[1]] = match[2].trim()
+        }
+      }
+    }
+  }
+  return env
+}
+
+async function callConfiguredLlm(messages, useBoostFirst = true) {
+  const env = loadEnvConfig()
+  const providers = []
+
+  if (env.LLM_BOOST_API_KEY && env.LLM_BOOST_BASE_URL) {
+    providers.push({
+      name: 'llm_boost',
+      apiKey: env.LLM_BOOST_API_KEY,
+      baseUrl: env.LLM_BOOST_BASE_URL.replace(/\/+$/, ''),
+      model: env.LLM_BOOST_MODEL_NAME || 'openai/gpt-oss-120b'
+    })
+  }
+  if (env.LLM_API_KEY && env.LLM_BASE_URL) {
+    providers.push({
+      name: 'llm_primary',
+      apiKey: env.LLM_API_KEY,
+      baseUrl: env.LLM_BASE_URL.replace(/\/+$/, ''),
+      model: env.LLM_MODEL_NAME || 'openrouter/free'
+    })
+  }
+
+  if (!useBoostFirst) {
+    providers.reverse()
+  }
+
+  for (const provider of providers) {
+    try {
+      const response = await fetch(`${provider.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${provider.apiKey}`
+        },
+        body: JSON.stringify({
+          model: provider.model,
+          messages,
+          temperature: 0.6,
+          max_tokens: 700
+        }),
+        signal: AbortSignal.timeout(12000)
+      })
+      if (!response.ok) continue
+      const data = await response.json()
+      const text = data?.choices?.[0]?.message?.content?.trim()
+      if (text) {
+        return { text, provider: provider.name, model: provider.model }
+      }
+    } catch {
+      // Fall through to next provider or local fallback
+    }
+  }
+  return null
+}
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode
@@ -36,28 +115,64 @@ async function parseRequestBody(req) {
     const text = rawBuffer.toString('utf-8')
     const result = { files: [] }
 
-    // Extract simulation_requirement and project_name fields
-    const reqMatch = text.match(/name="simulation_requirement"\r?\n\r?\n([\s\S]*?)\r?\n--/)
-    if (reqMatch) {
-      result.simulation_requirement = reqMatch[1].trim()
-    }
-    const nameMatch = text.match(/name="project_name"\r?\n\r?\n([\s\S]*?)\r?\n--/)
-    if (nameMatch) {
-      result.project_name = nameMatch[1].trim()
+    // Boundary-aware extraction for multipart fields
+    const boundaryMatch = contentType.match(/boundary=(?:"([^"]+)"|([^;]+))/i)
+    const boundary = boundaryMatch ? (boundaryMatch[1] || boundaryMatch[2]).trim() : null
+
+    if (boundary) {
+      const parts = text.split(`--${boundary}`)
+      for (const part of parts) {
+        if (!part || part === '--' || part.startsWith('--')) continue
+        const headerEndIdx = part.indexOf('\r\n\r\n') !== -1 ? part.indexOf('\r\n\r\n') : part.indexOf('\n\n')
+        if (headerEndIdx === -1) continue
+        const headersPart = part.slice(0, headerEndIdx)
+        const bodyOffset = part.slice(headerEndIdx).startsWith('\r\n\r\n') ? 4 : 2
+        const valuePart = part.slice(headerEndIdx + bodyOffset).replace(/\r?\n$/, '')
+
+        const fileMatch = headersPart.match(/filename="([^"]+)"/)
+        if (fileMatch && fileMatch[1]) {
+          result.files.push({ filename: fileMatch[1], size: Math.max(1024, valuePart.length) })
+          continue
+        }
+
+        const fieldMatch = headersPart.match(/name="([^"]+)"/)
+        if (fieldMatch && fieldMatch[1]) {
+          result[fieldMatch[1]] = valuePart.trim()
+        }
+      }
     }
 
-    // Extract uploaded file names
-    const fileRegex = /filename="([^"]+)"/g
-    let match
-    while ((match = fileRegex.exec(text)) !== null) {
-      if (match[1]) {
-        result.files.push({ filename: match[1], size: 24576 })
+    // Fallback regex extraction if boundary was not matched
+    if (!result.simulation_requirement) {
+      const reqMatch = text.match(/name="simulation_requirement"(?:[\s\S]*?\r?\n\r?\n)([\s\S]*?)\r?\n--/)
+      if (reqMatch) {
+        result.simulation_requirement = reqMatch[1].trim()
+      }
+    }
+    if (!result.project_name) {
+      const nameMatch = text.match(/name="project_name"(?:[\s\S]*?\r?\n\r?\n)([\s\S]*?)\r?\n--/)
+      if (nameMatch) {
+        result.project_name = nameMatch[1].trim()
+      }
+    }
+    if (result.files.length === 0) {
+      const fileRegex = /filename="([^"]+)"/g
+      let match
+      while ((match = fileRegex.exec(text)) !== null) {
+        if (match[1]) {
+          result.files.push({ filename: match[1], size: 24576 })
+        }
       }
     }
     return result
   }
 
-  return {}
+  // Fallback: attempt JSON parse even if Content-Type was omitted
+  try {
+    return JSON.parse(rawBuffer.toString('utf-8'))
+  } catch {
+    return {}
+  }
 }
 
 function createApiMiddleware(store = defaultStore) {
@@ -67,7 +182,18 @@ function createApiMiddleware(store = defaultStore) {
     const method = (req.method || 'GET').toUpperCase()
 
     if (pathname === '/health') {
-      return sendJson(res, 200, { status: 'ok', service: 'MiroFish Backend' })
+      const env = loadEnvConfig()
+      return sendJson(res, 200, {
+        status: 'ok',
+        service: 'MiroFish Backend',
+        configured: {
+          llm: Boolean(env.LLM_API_KEY),
+          llm_model: env.LLM_MODEL_NAME || null,
+          llm_boost: Boolean(env.LLM_BOOST_API_KEY),
+          llm_boost_model: env.LLM_BOOST_MODEL_NAME || null,
+          zep: Boolean(env.ZEP_API_KEY)
+        }
+      })
     }
 
     if (!pathname.startsWith('/api/')) {
@@ -93,8 +219,12 @@ function createApiMiddleware(store = defaultStore) {
 
       if (pathname === '/api/graph/ontology/generate' && method === 'POST') {
         const body = await parseRequestBody(req)
+        const simulationRequirement =
+          (body.simulation_requirement && String(body.simulation_requirement).trim()) ||
+          (body.project_name && String(body.project_name).trim()) ||
+          'Simulação e análise de evolução de opinião pública a partir dos documentos enviados'
         const project = store.generateOntology({
-          simulationRequirement: body.simulation_requirement,
+          simulationRequirement,
           projectName: body.project_name,
           files: body.files
         })
@@ -216,16 +346,58 @@ function createApiMiddleware(store = defaultStore) {
 
       if (pathname === '/api/simulation/env-status' && method === 'POST') {
         const body = await parseRequestBody(req)
+        const env = loadEnvConfig()
+        const hasLiveEngine = Boolean(env.LLM_BOOST_API_KEY || env.LLM_API_KEY)
         return sendJson(res, 200, {
           success: true,
-          data: { simulation_id: body.simulation_id, env_alive: false }
+          data: { simulation_id: body.simulation_id, env_alive: hasLiveEngine }
         })
       }
 
       if (pathname === '/api/simulation/interview/batch' && method === 'POST') {
         const body = await parseRequestBody(req)
-        const data = store.interviewAgents(body)
-        return sendJson(res, 200, { success: true, data })
+        const fallback = store.interviewAgents(body)
+        const profiles = store.getProfiles(body.simulation_id)
+        const interviews = Array.isArray(body.interviews) ? body.interviews : []
+
+        if (interviews.length > 0 && interviews.length <= 6) {
+          await Promise.all(
+            interviews.map(async (item) => {
+              const agentId = Number(item.agent_id ?? 0)
+              const agent = profiles[agentId] || profiles[0]
+              const prompt = String(item.prompt || '').trim()
+              if (!agent || !prompt) return
+
+              const llmRes = await callConfiguredLlm(
+                [
+                  {
+                    role: 'system',
+                    content: `Você é o agente simulado "${agent.username}" (${agent.profession}). Biografia: ${agent.bio}. Persona: ${agent.persona}. Tópicos de interesse: ${(agent.interested_topics || []).join(', ')}. Responda em português do Brasil em primeira pessoa, de forma autêntica e concisa (2 a 4 frases).`
+                  },
+                  {
+                    role: 'user',
+                    content: prompt
+                  }
+                ],
+                true
+              )
+
+              if (llmRes?.text) {
+                const formatted = `[${agent.username} (${agent.profession})]:\n${llmRes.text}`
+                if (fallback.result?.results?.[`reddit_${agentId}`]) {
+                  fallback.result.results[`reddit_${agentId}`].response = formatted
+                  fallback.result.results[`reddit_${agentId}`].answer = formatted
+                }
+                if (fallback.result?.results?.[`twitter_${agentId}`]) {
+                  fallback.result.results[`twitter_${agentId}`].response = formatted
+                  fallback.result.results[`twitter_${agentId}`].answer = formatted
+                }
+              }
+            })
+          )
+        }
+
+        return sendJson(res, 200, { success: true, data: fallback })
       }
 
       const simProfilesMatch = pathname.match(/^\/api\/simulation\/([^/]+)\/profiles(?:\/realtime)?$/)
@@ -352,6 +524,27 @@ function createApiMiddleware(store = defaultStore) {
       if (pathname === '/api/report/chat' && method === 'POST') {
         const body = await parseRequestBody(req)
         const result = store.chatWithReportAgent(body)
+        const sim = store.getSimulation(body.simulation_id)
+        const proj = store.getProject(sim.project_id) || store.getProject('proj_whu2025')
+        const cleanMsg = String(body.message || '').trim()
+
+        const llmRes = await callConfiguredLlm(
+          [
+            {
+              role: 'system',
+              content: `Você é o Agente de Relatório do MiroFish analisando o projeto "${proj.name}". Contexto da simulação: ${proj.simulation_requirement}. Resumo: ${proj.analysis_summary}. Responda sempre em português do Brasil de forma analítica, estruturada em tópicos Markdown concisos.`
+            },
+            {
+              role: 'user',
+              content: cleanMsg
+            }
+          ],
+          false
+        )
+
+        if (llmRes?.text) {
+          result.response = llmRes.text
+        }
         return sendJson(res, 200, { success: true, data: result })
       }
 

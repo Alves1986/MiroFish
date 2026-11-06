@@ -24,8 +24,19 @@ service.interceptors.request.use(
 
 // 响应拦截器（容错重试机制）
 service.interceptors.response.use(
-  response => {
+  async response => {
     const res = response.data
+
+    // Se o proxy retornar HTML (ex.: página de warmup durante reinicialização), tenta novamente automaticamente
+    if (!res || typeof res !== 'object' || res.success === undefined) {
+      const config = response.config || {}
+      config.__retryCount = (config.__retryCount || 0) + 1
+      if (config.__retryCount <= 3) {
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        return service(config)
+      }
+      return Promise.reject(new Error('Servidor temporariamente indisponível. Tente novamente em instantes.'))
+    }
     
     // 如果返回的状态码不是success，则抛出错误
     if (!res.success && res.success !== undefined) {

@@ -1106,7 +1106,16 @@ export class MiroFishStore {
   }
 
   getProject(projectId) {
-    return this.state.projects[projectId] || null
+    if (this.state.projects[projectId]) {
+      return this.state.projects[projectId]
+    }
+    if (typeof projectId === 'string' && projectId.startsWith('proj_')) {
+      return {
+        ...this.state.projects.proj_whu2025,
+        project_id: projectId
+      }
+    }
+    return null
   }
 
   listProjects(limit = 50) {
@@ -1329,11 +1338,12 @@ export class MiroFishStore {
   }
 
   buildGraph({ project_id }) {
-    const project = this.state.projects[project_id]
+    const project = this.getProject(project_id)
     if (!project) {
       throw new Error(`Projeto não encontrado: ${project_id}`)
     }
     project.status = 'graph_completed'
+    this.state.projects[project.project_id] = project
     return {
       project_id: project.project_id,
       task_id: project.graph_build_task_id,

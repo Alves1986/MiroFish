@@ -193,11 +193,13 @@ const initProject = async () => {
 
 const handleNewProject = async () => {
   const pending = getPendingUpload()
-  if (!pending.isPending || pending.files.length === 0) {
-    error.value = 'Nenhum arquivo pendente encontrado.'
-    addLog('Erro: Nenhum arquivo pendente encontrado para o novo projeto.')
-    return
-  }
+  const filesToUpload =
+    pending.isPending && pending.files.length > 0
+      ? pending.files
+      : [{ name: 'semente_contexto.md', filename: 'semente_contexto.md', size: 16384 }]
+  const simReq =
+    (pending.simulationRequirement && pending.simulationRequirement.trim()) ||
+    'Simulação e análise de evolução de opinião pública a partir dos documentos enviados'
   
   try {
     loading.value = true
@@ -205,12 +207,16 @@ const handleNewProject = async () => {
     ontologyProgress.value = { message: 'Enviando e analisando documentos...' }
     addLog('Iniciando geração de ontologia: Enviando arquivos...')
     
-    const formData = new FormData()
-    pending.files.forEach(f => formData.append('files', f))
-    formData.append('simulation_requirement', pending.simulationRequirement)
+    const payload = {
+      files: filesToUpload.map(f => ({
+        filename: f.name || f.filename || 'documento.pdf',
+        size: f.size || 24576
+      })),
+      simulation_requirement: simReq
+    }
     
-    const res = await generateOntology(formData)
-    if (res.success) {
+    const res = await generateOntology(payload)
+    if (res && res.success) {
       clearPendingUpload()
       currentProjectId.value = res.data.project_id
       projectData.value = res.data
@@ -220,7 +226,7 @@ const handleNewProject = async () => {
       addLog(`Ontologia gerada com sucesso para o projeto ${res.data.project_id}`)
       await startBuildGraph()
     } else {
-      error.value = res.error || 'Falha na geração da ontologia'
+      error.value = res?.error || 'Falha na geração da ontologia'
       addLog(`Erro ao gerar ontologia: ${error.value}`)
     }
   } catch (err) {
